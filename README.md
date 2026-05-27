@@ -3,13 +3,14 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.m00nreport%20a:m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that streams test results in real-time. Designed specifically for **Playwright Java** browser automation with JUnit 5.
+A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that streams test results in real-time. Designed for **Playwright Java** browser automation with the JUnit Jupiter test platform.
 
 ## ✨ Features
 
 - 🎭 **Built for Playwright** - First-class Playwright Java integration
 - 🚀 **Real-time streaming** - Watch tests as they run via WebSocket
 - 📝 **Automatic step tracking** - `@Step` annotation with AspectJ (no boilerplate!)
+- 🔗 **Test case linking** - `@TestCaseId` annotation links autotests to manual cases (single, multi, parametrized)
 - 🔄 **Retry tracking** - Full support for `@RetryingTest`
 - 📸 **Rich attachments** - Screenshots, videos, Playwright traces
 - ⚡ **Thread-safe** - Parallel test execution support
@@ -27,9 +28,9 @@ repositories {
 
 dependencies {
     // M00N Playwright JUnit Reporter (includes AspectJ runtime)
-    implementation("com.m00nreport:m00n-junit-reporter:1.4.0")
-    
-    // JUnit 5
+    implementation("com.m00nreport:m00n-junit-reporter:1.5.1")
+
+    // JUnit Jupiter
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
     
     // Playwright
@@ -115,6 +116,7 @@ See the [full documentation](m00n-junit-reporter/README.md) for:
 
 - **Page Object pattern** with `@Step` annotation
 - **BasePlaywrightTest class** for automatic screenshot/video/trace capture
+- **`@TestCaseId` linking** - single, multi-case, and parametrized mappings
 - **Retry support** with JUnit Pioneer's `@RetryingTest`
 - **Rich attachments** - screenshots, videos, Playwright traces
 - **Configuration reference** for customization

@@ -149,11 +149,10 @@ public class M00NReporter {
             payload.put("total", totalTestCount);
             payload.put("startedAt", Instant.now().toString());
             
-            // Add attributes
-            Map<String, Object> attributes = new HashMap<>(config.getAttributes());
-            attributes.put("framework", "JUnit 5");
-            attributes.put("language", "Java");
-            payload.put("attributes", attributes);
+            // Add user-supplied attributes (m00n.attribute.* from config).
+            // The reporter no longer injects framework/language defaults; those
+            // cluttered every launch's attribute list without adding value.
+            payload.put("attributes", new HashMap<>(config.getAttributes()));
             
             JsonObject response = httpClient.post("/api/ingest/v2/run/start", payload);
             

@@ -3,13 +3,14 @@
 [![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.m00nreport%20a:m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that sends test results in real-time to your dashboard. Developed specifically for **Playwright Java** browser automation with JUnit 5.
+A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that sends test results in real-time to your dashboard. Designed for **Playwright Java** browser automation with the JUnit Jupiter test platform.
 
 ## ✨ Features
 
 - 🎭 **Built for Playwright** - First-class Playwright Java integration with automatic artifact capture
 - 🚀 **Real-time streaming** - See tests as they run via WebSocket
 - 📝 **Automatic step tracking** - Use `@Step` annotation with AspectJ - no boilerplate code!
+- 🔗 **Declarative case linking** - Use `@TestCaseId` to link autotests to manual test cases (single, multi, parametrized)
 - 🔄 **Retry tracking** - Full support for `@RetryingTest` with attempt history
 - 📸 **Rich attachments** - Screenshots, videos, Playwright traces
 - 🏷️ **Display names** - Use `@DisplayName` for readable test titles
@@ -37,8 +38,8 @@ repositories {
 }
 
 dependencies {
-    // M00N Playwright JUnit 5 Reporter
-    implementation("com.m00nreport:m00n-junit-reporter:1.0.0")
+    // M00N Playwright JUnit Reporter
+    implementation("com.m00nreport:m00n-junit-reporter:1.5.1")
     
     // AspectJ for automatic step interception (no boilerplate!)
     implementation("org.aspectj:aspectjrt:1.9.22")
@@ -94,11 +95,11 @@ tasks.test {
 
 ```xml
 <dependencies>
-    <!-- M00N Playwright JUnit 5 Reporter -->
+    <!-- M00N Playwright JUnit Reporter -->
     <dependency>
         <groupId>com.m00nreport</groupId>
         <artifactId>m00n-junit-reporter</artifactId>
-        <version>1.0.0</version>
+        <version>1.5.1</version>
     </dependency>
     
     <!-- AspectJ Runtime -->
@@ -504,6 +505,101 @@ void flakyApiTest() {
     assertEquals(200, response.status());
 }
 ```
+
+---
+
+## 🔗 Linking Autotests to Test Cases — `@TestCaseId`
+
+Use `@TestCaseId` to declaratively link a JUnit test to one or more
+manual test cases in M00N Report. The reporter injects `[TC-N]` markers
+into the test name and the ingest service resolves them to case IDs —
+no backend setup required.
+
+> Available since `1.4.0`.
+
+### Single case
+
+```java
+import com.m00nreport.reporter.annotations.TestCaseId;
+
+@Test
+@TestCaseId("634207")
+void homepageLoads() { ... }
+```
+
+### One test covers multiple cases (non-parametrized)
+
+```java
+@Test
+@TestCaseId("634199, 634203, 634205")
+void smokeCoversThreeCases() {
+    // All three cases (TC-634199, TC-634203, TC-634205) link to this run.
+    // Useful when a single autotest validates several acceptance criteria.
+}
+```
+
+### Parametrized — invocation N links to value[N-1]
+
+```java
+@ParameterizedTest
+@ValueSource(strings = {"a", "b", "c", "d", "e", "f"})
+@TestCaseId(parametrized = true,
+            value = "634199, 634203, 634205, 634206, 377482, 2878215")
+void perInvocationLinks(String input) {
+    // invocation 1 → TC-634199, invocation 2 → TC-634203, ...
+}
+```
+
+### Single case across every parametrized invocation
+
+```java
+@ParameterizedTest
+@ValueSource(strings = {"/docs/page", "/docs/locator"})
+@TestCaseId("634300")
+void sharedCase(String path) {
+    // TC-634300 links to both invocations.
+}
+```
+
+### Class-level fallback (method-level fully overrides)
+
+```java
+@TestCaseId("100000")        // applies to every method without its own
+class CheckoutSuite {
+
+    @Test
+    void usesClassLevel() { ... }    // → TC-100000
+
+    @Test
+    @TestCaseId("100099")
+    void overridesClassLevel() { ... } // → TC-100099 only (100000 suppressed)
+}
+```
+
+### Multiple autotests on the same case
+
+Different `@Test` methods can carry the same `@TestCaseId` — the case
+will show all of them as linked autotests:
+
+```java
+@Test
+@TestCaseId("5")
+void uiCoversCase5()  { ... }
+
+@Test
+@TestCaseId("5")     // same case, second autotest
+void apiCoversCase5() { ... }
+```
+
+### Behavior summary
+
+| Annotation | Test type | Result |
+|---|---|---|
+| `@TestCaseId("N")` | `@Test` | 1 case linked |
+| `@TestCaseId("A, B, C")` | `@Test` | all 3 cases linked to that test |
+| `@TestCaseId(parametrized=true, value="A,B,C,D")` | `@ParameterizedTest` | invocation K → value[K-1] |
+| `@TestCaseId("N")` | `@ParameterizedTest` | same case on every invocation |
+| Mismatched usage (e.g. parametrized=true on `@Test`) | — | reporter logs warning, uses first value |
 
 ---
 

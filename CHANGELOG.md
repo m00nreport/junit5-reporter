@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-05-27
+
+### Changed
+- The reporter no longer auto-injects `framework=JUnit 5` and `language=Java` into every launch's attribute list. These two badges added no information and cluttered every project's dashboard. Users who want them back can set them explicitly via `m00n.attribute.framework=JUnit` and `m00n.attribute.language=Java`.
+
 ## [1.5.0] - 2026-05-26
 
 ### Changed
