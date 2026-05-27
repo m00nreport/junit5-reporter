@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.m00nreport"
-version = "1.4.0"
+version = "1.4.1"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -39,7 +39,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // JSON processing
-    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.google.code.gson:gson:2.14.0")
 
     // Logging (SLF4J API - users bring their own impl)
     implementation("org.slf4j:slf4j-api:2.0.16")

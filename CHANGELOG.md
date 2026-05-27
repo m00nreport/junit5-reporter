@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-05-26
+
+### Security
+- Bump `com.google.code.gson:gson` 2.11.0 → 2.14.0 to address CVSS 6.9 (Medium) vulnerability flagged on the older version. Gson is used internally for serializing reporter payloads — no API change.
+
 ## [1.4.0] - 2026-05-26
 
 ### Added
