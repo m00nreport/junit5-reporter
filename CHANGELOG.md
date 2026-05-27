@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-26
+
+### Changed
+- **Step streaming is now batched.** Per-step events used to fire one HTTP POST each; they now coalesce in a 200 ms / 100-step window, mirroring the JS Playwright reporter. Under parallel test load (many `@Step` calls), this cuts step-stream HTTP traffic by 10–100× without changing the dashboard's real-time experience.
+- Same endpoint (`/api/ingest/v2/steps/stream`) and payload shape (`{ items: [...] }`) — backend unchanged.
+- Failure mode is still fire-and-forget; if a batch POST drops, the test's final `/test/complete` payload still carries the full step list, so the dashboard stays consistent.
+
+### Added
+- `StepBatcher` — thread-safe, size-or-time bounded buffer with a single-threaded daemon scheduler. Producers never block on network I/O.
+
 ## [1.4.1] - 2026-05-26
 
 ### Security

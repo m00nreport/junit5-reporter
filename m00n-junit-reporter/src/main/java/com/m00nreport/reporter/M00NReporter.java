@@ -37,6 +37,10 @@ public class M00NReporter {
     private final M00NConfig config;
     private final M00NHttpClient httpClient;
     private final boolean enabled;
+
+    // Batches per-step events into size-or-time bounded HTTP requests.
+    // Recreated per run because shutdown stops the scheduler thread.
+    private StepBatcher stepBatcher;
     
     // Run state
     private volatile String runId;
@@ -71,10 +75,12 @@ public class M00NReporter {
         if (enabled) {
             this.httpClient = new M00NHttpClient(config);
             this.uploadExecutor = Executors.newFixedThreadPool(4);
+            this.stepBatcher = createStepBatcher();
             log.info("[M00NReporter] Initialized - server: {}", config.getServerUrl());
         } else {
             this.httpClient = null;
             this.uploadExecutor = null;
+            this.stepBatcher = null;
             log.info("[M00NReporter] Disabled - no serverUrl or apiKey configured");
         }
     }
@@ -172,7 +178,16 @@ public class M00NReporter {
         if (!enabled || !runStarted || runEnded) return;
         
         runEnded = true;
-        
+
+        // Drain any buffered step events before signalling run end
+        if (stepBatcher != null) {
+            int pending = stepBatcher.getPending();
+            if (pending > 0) {
+                log.debug("[M00NReporter] Flushing {} buffered step events", pending);
+            }
+            stepBatcher.flush();
+        }
+
         // Wait for pending uploads
         waitForPendingUploads();
         
@@ -222,8 +237,21 @@ public class M00NReporter {
         if (uploadExecutor == null || uploadExecutor.isShutdown()) {
             uploadExecutor = Executors.newFixedThreadPool(4);
         }
-        
+
+        // Recreate step batcher (its scheduler was shut down in previous endRun)
+        if (stepBatcher == null || stepBatcher.isShutdown()) {
+            stepBatcher = createStepBatcher();
+        }
+
         log.debug("[M00NReporter] Reset for new run");
+    }
+
+    /**
+     * Step batcher tuned to match the JS Playwright reporter:
+     * flush every 200 ms or when 100 step events accumulate, whichever comes first.
+     */
+    private StepBatcher createStepBatcher() {
+        return new StepBatcher(httpClient, "/api/ingest/v2/steps/stream", 200, 100);
     }
     
     /**
@@ -385,13 +413,11 @@ public class M00NReporter {
                 stepItem.put("error", errorMap);
             }
             
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("items", List.of(stepItem));
-            
-            // Fire-and-forget for real-time streaming
-            httpClient.postAsync("/api/ingest/v2/steps/stream", payload);
-            
-            log.debug("[M00NReporter] Step streamed: {} ({})", step.getTitle(), action);
+            // Fire-and-forget — batcher coalesces with other in-flight steps
+            // and POSTs every flushInterval ms (or sooner when maxBatchSize is reached).
+            stepBatcher.add(stepItem);
+
+            log.debug("[M00NReporter] Step queued: {} ({})", step.getTitle(), action);
         } catch (Exception e) {
             // Don't fail test for step streaming issues
             log.debug("[M00NReporter] Failed to stream step: {}", e.getMessage());
@@ -529,6 +555,10 @@ public class M00NReporter {
      * Shutdown the reporter.
      */
     private void shutdown() {
+        if (stepBatcher != null) {
+            stepBatcher.shutdownGracefully();
+        }
+
         if (uploadExecutor != null) {
             uploadExecutor.shutdown();
             try {
