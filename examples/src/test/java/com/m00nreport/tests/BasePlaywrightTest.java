@@ -1,7 +1,7 @@
 package com.m00nreport.tests;
 
-import com.m00nreport.reporter.M00nReporter;
-import com.m00nreport.reporter.M00nStep;
+import com.m00nreport.reporter.M00NReporter;
+import com.m00nreport.reporter.M00NStep;
 import com.m00nreport.reporter.model.AttachmentData;
 import com.m00nreport.reporter.model.TestResult;
 import com.microsoft.playwright.*;
@@ -68,8 +68,8 @@ public abstract class BasePlaywrightTest {
         this.page = page;
         this.currentTestName = sanitizeFilename(testInfo.getDisplayName());
         
-        // Capture test ID from M00n reporter for later attachment
-        this.currentTestId = M00nStep.current()
+        // Capture test ID from M00N reporter for later attachment
+        this.currentTestId = M00NStep.current()
             .map(TestResult::getTestId)
             .orElse(null);
         
@@ -101,7 +101,7 @@ public abstract class BasePlaywrightTest {
         
         // Get test ID and failure status before they're cleared
         final String testId = this.currentTestId;
-        final boolean testFailed = M00nStep.isCurrentTestFailed();
+        final boolean testFailed = M00NStep.isCurrentTestFailed();
         
         // Only capture and attach artifacts for failed tests
         if (testFailed && testId != null) {
@@ -110,7 +110,7 @@ public abstract class BasePlaywrightTest {
                 try {
                     byte[] screenshot = page.screenshot(new Page.ScreenshotOptions()
                         .setFullPage(false));
-                    M00nReporter.getInstance().attachToTest(testId,
+                    M00NReporter.getInstance().attachToTest(testId,
                         AttachmentData.screenshot("screenshot.png", screenshot));
                     log.info("[BasePlaywrightTest] Screenshot attached to test {} ({} KB)", 
                         testId, screenshot.length / 1024);
@@ -128,7 +128,7 @@ public abstract class BasePlaywrightTest {
                 
                 if (Files.exists(tracePath)) {
                     byte[] traceBytes = Files.readAllBytes(tracePath);
-                    M00nReporter.getInstance().attachToTest(testId, 
+                    M00NReporter.getInstance().attachToTest(testId, 
                         AttachmentData.trace("trace.zip", traceBytes));
                     log.info("[BasePlaywrightTest] Trace attached to test {}", testId);
                 }
@@ -151,7 +151,7 @@ public abstract class BasePlaywrightTest {
                                 Thread.sleep(1000); // Wait for context to close
                                 if (Files.exists(finalVideoPath)) {
                                     byte[] videoBytes = Files.readAllBytes(finalVideoPath);
-                                    M00nReporter.getInstance().attachToTest(finalTestId,
+                                    M00NReporter.getInstance().attachToTest(finalTestId,
                                         AttachmentData.video("video.webm", videoBytes));
                                     log.info("[BasePlaywrightTest] Video attached to test {} ({} KB)", 
                                         finalTestId, videoBytes.length / 1024);

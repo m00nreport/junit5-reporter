@@ -1,13 +1,13 @@
-# M00n Reporter Configuration
+# M00N Reporter Configuration
 # Copy this file to m00n.properties and fill in your values
 
 # Enable/disable reporter (set to false for local development)
 m00n.enabled=true
 
-# Required: M00n Report ingest server URL
+# Required: M00N Report ingest server URL
 m00n.serverUrl=http://localhost:4001
 
-# Required: Project API key (get from M00n Report dashboard)
+# Required: Project API key (get from M00N Report dashboard)
 m00n.apiKey=m00n_your_api_key_here
 
 # Optional: Run/launch name

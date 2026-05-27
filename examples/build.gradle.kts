@@ -2,7 +2,7 @@ plugins {
     id("java")
 }
 
-group = "io.m00nreport"
+group = "com.m00nreport"
 version = "1.0.0"
 
 java {
@@ -16,8 +16,8 @@ repositories {
 
 dependencies {
     // Use the reporter from sibling module (during development)
-    // In production, users would use: implementation("io.m00nreport:m00n-junit5-reporter:1.0.0")
-    implementation(project(":m00n-junit5-reporter"))
+    // In production, users would use: implementation("io.m00nreport:m00n-junit-reporter:1.0.0")
+    implementation(project(":m00n-junit-reporter"))
     
     // Playwright
     implementation("com.microsoft.playwright:playwright:1.57.0")

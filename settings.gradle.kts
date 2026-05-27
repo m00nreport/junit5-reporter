@@ -1,4 +1,4 @@
-rootProject.name = "m00n-junit5-reporter-root"
+rootProject.name = "m00n-junit-reporter-root"
 
-include("m00n-junit5-reporter")
+include("m00n-junit-reporter")
 include("examples")

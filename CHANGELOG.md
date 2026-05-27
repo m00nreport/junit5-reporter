@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-26
+
+### Added
+- **`@TestCaseId` annotation** — declarative linking of JUnit 5 tests to M00N test cases, ReportPortal-compatible syntax:
+  - `@TestCaseId("634207")` — link a single test to one case.
+  - `@TestCaseId("634199, 634203, 634205")` — link a single non-parametrized test to multiple cases (one autotest covering several acceptance criteria).
+  - `@TestCaseId(parametrized = true, value = "634199, 634203, ...")` on `@ParameterizedTest` — invocation N links to `value[N-1]`.
+  - Class-level annotation acts as a fallback; method-level fully overrides class-level.
+  - Multiple `@Test` methods may share the same case number, aggregating coverage from multiple autotests on one case.
+- Reporter injects `[TC-N]` markers into the test display name; the existing M00N ingest extractor resolves them to case IDs — **no backend changes required**.
+
 ## [1.2.4] - 2026-01-14
 
 ### Fixed
@@ -30,13 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Constants: Configurable limits** - Extracted magic numbers to named constants:
   - `MAX_ARG_LENGTH = 200` - Step argument truncation limit
   - `MAX_ARRAY_ITEMS = 5` - Array items before truncation
-- **Duplicate artifact prevention** - Added `SCREENSHOT_CAPTURED` and `TRACE_CAPTURED` thread-local flags to prevent duplicate attachments when both M00nExtension and base test classes attempt to capture artifacts
+- **Duplicate artifact prevention** - Added `SCREENSHOT_CAPTURED` and `TRACE_CAPTURED` thread-local flags to prevent duplicate attachments when both M00NExtension and base test classes attempt to capture artifacts
 
 ### Added
-- `M00nPlaywright.isScreenshotCaptured()` - Check if screenshot already captured for current test
-- `M00nPlaywright.isTraceCaptured()` - Check if trace already captured for current test
-- `M00nPlaywright.markScreenshotCaptured()` - Mark screenshot as captured (for manual capture)
-- `M00nPlaywright.markTraceCaptured()` - Mark trace as captured (for manual capture)
+- `M00NPlaywright.isScreenshotCaptured()` - Check if screenshot already captured for current test
+- `M00NPlaywright.isTraceCaptured()` - Check if trace already captured for current test
+- `M00NPlaywright.markScreenshotCaptured()` - Mark screenshot as captured (for manual capture)
+- `M00NPlaywright.markTraceCaptured()` - Mark trace as captured (for manual capture)
 
 ## [1.2.2] - 2026-01-14
 
@@ -52,11 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`PlaywrightTestProvider` interface** - Optional explicit contract:
   - Implement `getPage()` and `getContext()` if you prefer explicit registration
   - Useful for wrapper classes like `MainPage`
-- **`M00nPlaywright` utility class** - Alternative manual registration API:
-  - `M00nPlaywright.setPage(page)` - enables screenshot capture on failure
-  - `M00nPlaywright.setContext(context)` - enables trace capture on failure
+- **`M00NPlaywright` utility class** - Alternative manual registration API:
+  - `M00NPlaywright.setPage(page)` - enables screenshot capture on failure
+  - `M00NPlaywright.setContext(context)` - enables trace capture on failure
   - Uses reflection to avoid compile-time Playwright dependency
-- **`M00nPlaywrightExtension`** - Optional extension for video capture:
+- **`M00NPlaywrightExtension`** - Optional extension for video capture:
   - Only needed if you want video recording (requires context close first)
 - **`@Step` placeholder support** - Step titles now support parameter placeholders:
   - `{paramName}` - replaced with parameter value by name (e.g., `@Step("Opening {url}")`)
@@ -97,7 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **AspectJ-based step tracking** - Automatic `@Step` interception without StepProxy or PageFactory
-- `M00nStepAspect` for load-time weaving of `@Step` annotated methods
+- `M00NStepAspect` for load-time weaving of `@Step` annotated methods
 - Zero-boilerplate step tracking - just annotate methods and they're tracked!
 
 ### Changed
@@ -112,14 +123,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-01-14
 
 ### Added
-- Initial release of M00n JUnit 5 Reporter
+- Initial release of M00N JUnit 5 Reporter
 - Real-time test result streaming via WebSocket
 - JUnit 5 extension with automatic registration via ServiceLoader
 
 ### Step Tracking
 - `@Step` annotation for Page Object methods
 - `StepProxy.create()` for manual step tracking (legacy approach)
-- Steps appear in M00n Report with timing and status
+- Steps appear in M00N Report with timing and status
 - Manual step API via `TestResult.addStep()`
 
 ### Retry Support
@@ -136,8 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Async upload with retry logic
 
 ### Playwright Integration
-- `M00nStep.current()` for current test access
-- `M00nStep.isCurrentTestFailed()` for conditional artifact capture
+- `M00NStep.current()` for current test access
+- `M00NStep.isCurrentTestFailed()` for conditional artifact capture
 - Base test class pattern for artifact capture
 
 ### Configuration
@@ -166,5 +177,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connection pooling for HTTP client
 - AtomicInteger counters for thread safety
 
-[Unreleased]: https://github.com/m00nsolutions/m00n-junit5-reporter/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/m00nsolutions/m00n-junit5-reporter/releases/tag/v1.0.0
+[Unreleased]: https://github.com/m00nsolutions/m00n-junit-reporter/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/m00nsolutions/m00n-junit-reporter/releases/tag/v1.0.0

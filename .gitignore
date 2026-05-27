@@ -72,7 +72,7 @@ Thumbs.db
 desktop.ini
 
 # ===========================================
-# M00n Configuration (contains API keys)
+# M00N Configuration (contains API keys)
 # ===========================================
 m00n.properties
 !m00n.properties.example

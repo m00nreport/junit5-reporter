@@ -1,6 +1,6 @@
 package com.m00nreport.tests;
 
-import com.m00nreport.reporter.M00nStep;
+import com.m00nreport.reporter.M00NStep;
 import com.m00nreport.reporter.model.AttachmentData;
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.*;
@@ -15,7 +15,7 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Test class demonstrating all possible test states for M00n Report.
+ * Test class demonstrating all possible test states for M00N Report.
  * 
  * States covered:
  * - PASSED: Test completes successfully
@@ -49,7 +49,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
     @Order(2)
     @DisplayName("✅ Passed test with steps")
     void passedTestWithSteps(Page page) {
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             var step1 = test.addStep("Navigate to homepage", "navigation");
             page.navigate("https://playwright.dev/");
             step1.setStatus("passed");
@@ -75,7 +75,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
         
         // Take screenshot and attach
         var screenshot = page.screenshot();
-        M00nStep.current().ifPresent(test ->
+        M00NStep.current().ifPresent(test ->
             test.addAttachment(AttachmentData.screenshot("homepage-screenshot", screenshot))
         );
         
@@ -105,7 +105,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
         
         // Capture screenshot before failure
         var screenshot = page.screenshot();
-        M00nStep.current().ifPresent(test ->
+        M00NStep.current().ifPresent(test ->
             test.addAttachment(AttachmentData.screenshot("before-failure", screenshot))
         );
         
@@ -167,7 +167,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
         
         page.navigate("https://playwright.dev/");
         
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             var step = test.addStep("Attempt #" + attempt, "info");
             step.setStatus("passed");
         });
@@ -187,7 +187,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
         
         page.navigate("https://playwright.dev/");
         
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             var step = test.addStep("Retry attempt #" + attempt, "info");
             step.setStatus("passed");
         });
@@ -206,7 +206,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
         
         page.navigate("https://playwright.dev/");
         
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             var step = test.addStep("Execution attempt #" + attempt, "info");
             step.setStatus("passed");
             step.setDuration(100L);
@@ -229,7 +229,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
     @Order(40)
     @DisplayName("📋 Test with multiple nested steps")
     void testWithNestedSteps(Page page) {
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             // Step 1: Setup
             var setupStep = test.addStep("Setup", "hook");
             setupStep.setStatus("passed");
@@ -266,7 +266,7 @@ class AllTestStatesTests extends BasePlaywrightTest {
     @Order(41)
     @DisplayName("📋 Test with failing step")
     void testWithFailingStep(Page page) {
-        M00nStep.current().ifPresent(test -> {
+        M00NStep.current().ifPresent(test -> {
             // Step 1: Passes
             var step1 = test.addStep("Navigate to homepage", "navigation");
             page.navigate("https://playwright.dev/");

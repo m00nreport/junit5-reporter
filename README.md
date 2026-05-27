@@ -1,10 +1,9 @@
-# M00n Playwright JUnit 5 Reporter
+# M00N Playwright JUnit Reporter
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.m00nreport/m00n-junit5-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:io.m00nreport%20a:m00n-junit5-reporter)
-[![JitPack](https://jitpack.io/v/m00nsolutions/m00n-junit5-reporter.svg)](https://jitpack.io/#m00nsolutions/m00n-junit5-reporter)
+[![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.m00nreport%20a:m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A **Playwright JUnit 5** reporter for [M00n Report](https://app.m00n.report) that streams test results in real-time. Designed specifically for **Playwright Java** browser automation with JUnit 5.
+A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that streams test results in real-time. Designed specifically for **Playwright Java** browser automation with JUnit 5.
 
 ## ✨ Features
 
@@ -27,8 +26,8 @@ repositories {
 }
 
 dependencies {
-    // M00n Playwright JUnit 5 Reporter (includes AspectJ runtime)
-    implementation("io.m00nreport:m00n-junit5-reporter:1.2.0")
+    // M00N Playwright JUnit Reporter (includes AspectJ runtime)
+    implementation("com.m00nreport:m00n-junit-reporter:1.4.0")
     
     // JUnit 5
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
@@ -63,7 +62,7 @@ tasks.test {
 Create `src/test/resources/m00n.properties`:
 
 ```properties
-m00n.serverUrl=https://app.m00n.report
+m00n.serverUrl=https://m00nreport.com
 m00n.apiKey=m00n_your_api_key_here
 m00n.launch=Playwright Tests
 ```
@@ -108,11 +107,11 @@ public class LoginPage {
 ./gradlew test
 ```
 
-Results stream to M00n Report in real-time! 🎉
+Results stream to M00N Report in real-time! 🎉
 
 ## 📖 Full Documentation
 
-See the [full documentation](m00n-junit5-reporter/README.md) for:
+See the [full documentation](m00n-junit-reporter/README.md) for:
 
 - **Page Object pattern** with `@Step` annotation
 - **BasePlaywrightTest class** for automatic screenshot/video/trace capture
@@ -123,8 +122,8 @@ See the [full documentation](m00n-junit5-reporter/README.md) for:
 ## 📁 Project Structure
 
 ```
-m00n-junit5-reporter/
-├── m00n-junit5-reporter/     # The Playwright JUnit 5 reporter library
+m00n-junit-reporter/
+├── m00n-junit-reporter/     # The Playwright JUnit reporter library
 │   ├── src/main/java/        # Source code
 │   └── README.md             # Full documentation
 ├── examples/                 # Example Playwright tests
@@ -136,8 +135,8 @@ m00n-junit5-reporter/
 
 ```bash
 # Clone the repository
-git clone https://github.com/m00nsolutions/m00n-junit5-reporter.git
-cd m00n-junit5-reporter
+git clone https://github.com/m00nsolutions/m00n-junit-reporter.git
+cd m00n-junit-reporter
 
 # Build
 ./gradlew build
@@ -155,6 +154,6 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
-- [M00n Report Dashboard](https://app.m00n.report)
-- [Documentation](https://app.m00n.report/documentation/reporters/junit5)
-- [Issue Tracker](https://github.com/m00nsolutions/m00n-junit5-reporter/issues)
+- [M00N Report Dashboard](https://m00nreport.com)
+- [Documentation](https://m00nreport.com/documentation/reporters/junit)
+- [Issue Tracker](https://github.com/m00nsolutions/m00n-junit-reporter/issues)
