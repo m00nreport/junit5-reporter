@@ -208,12 +208,15 @@ public class M00NReporter {
             
             httpClient.post("/api/ingest/v2/run/end", payload);
             log.info("[M00NReporter] Run ended: {} (status: {})", runId, status);
-            
-            printSummary();
         } catch (IOException e) {
             log.error("[M00NReporter] Failed to end run: {}", e.getMessage());
             errors.incrementAndGet();
         } finally {
+            // The summary is the user's only confirmation that reporting worked, and it used to be
+            // inside the try - printed only when the final run/end POST succeeded. So on exactly
+            // the runs where something went wrong, the line telling them so was the line that did
+            // not appear, and the terminal looked like a run with no reporter installed.
+            printSummary();
             shutdown();
         }
     }

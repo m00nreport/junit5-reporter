@@ -646,11 +646,12 @@ AttachmentData.video("recording.webm", videoBytes);
 // Trace (Playwright)
 AttachmentData.trace("trace.zip", traceBytes);
 
-// Log file
-AttachmentData.log("console.log", logBytes);
+// Any bytes, with a content type you choose
+AttachmentData.fromBytes("console.log", logBytes, "text/plain");
+AttachmentData.fromBytes("data.json", jsonBytes, "application/json");
 
-// Generic file
-AttachmentData.file("data.json", jsonBytes, "application/json");
+// Or straight from disk, without reading it here first
+AttachmentData.fromPath("report.html", Path.of("build/report.html"), "text/html");
 ```
 
 ---

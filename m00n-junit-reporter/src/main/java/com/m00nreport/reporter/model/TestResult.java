@@ -109,8 +109,15 @@ public class TestResult {
         }
     }
     
+    /** Start times for steps added through addStep, so completeStep can measure them. */
+    private final java.util.Map<StepData, Long> stepStartMillis = new java.util.concurrent.ConcurrentHashMap<>();
+
     public StepData addStep(String title, String category) {
         StepData step = new StepData(title, category, stepIndex++);
+        // Stamped so completeStep can measure. Steps added through this API always reported a null
+        // duration, which the UI renders as a dash - indistinguishable from a step that genuinely
+        // took no time, and useless for finding the slow one.
+        stepStartMillis.put(step, System.currentTimeMillis());
         // Honour the current nesting level. The @Step aspect maintains it around every annotated
         // method, but this - the API a user reaches for when adding a step by hand - created every
         // step at level 0, so a manually built hierarchy rendered as a flat list however it was
@@ -127,6 +134,10 @@ public class TestResult {
     
     public void completeStep(StepData step, boolean passed, Throwable error) {
         step.setStatus(passed ? "passed" : "failed");
+        Long startedAt = stepStartMillis.remove(step);
+        if (startedAt != null) {
+            step.setDuration(Math.max(0L, System.currentTimeMillis() - startedAt));
+        }
         if (error != null) {
             step.setError(new ErrorData(error));
         }
