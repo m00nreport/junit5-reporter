@@ -1,45 +1,47 @@
 # M00N Reporter Configuration
-# Copy this file to m00n.properties and fill in your values
+# Copy this file to src/test/resources/m00n.properties and fill in your values.
+#
+# Every setting below also resolves from a -D system property or an environment
+# variable, and those win over this file. The exception is m00n.attribute.*, see
+# the bottom of this file.
 
-# Enable/disable reporter (set to false for local development)
+# Enable/disable the reporter. Only the exact value "false" disables it.
 m00n.enabled=true
 
-# Required: M00N Report ingest server URL
-m00n.serverUrl=http://localhost:4001
+# Required: M00N Report server URL
+m00n.serverUrl=https://m00nreport.com
 
-# Required: Project API key (get from M00N Report dashboard)
+# Required: Project API key (get from the M00N Report dashboard)
 m00n.apiKey=m00n_your_api_key_here
 
-# Optional: Run/launch name
-m00n.launch=Playwright Java Tests
+# Optional: title shown on the launch card
+m00n.launch=Checkout suite
 
-# Optional: Tags (comma-separated)
+# Optional: tags (comma-separated)
 m00n.tags=smoke,regression
 
-# Optional: Debug mode (true/false)
+# Optional: log request bodies and responses at DEBUG level
 m00n.debug=false
 
 # Optional: HTTP timeout in milliseconds
 m00n.timeout=30000
 
-# Optional: Max retry attempts
+# Optional: TOTAL attempts per request, not retries on top of a first try.
+# 3 means three tries; 0 and 1 both mean one try and no retry.
 m00n.maxRetries=3
 
-# Optional: Custom attributes (prefix with m00n.attribute.)
+# Optional: custom attributes on the run.
+#
+# The dashboard renders two keys specially on the launch card, "branch" and
+# "triggered_by". Any other key is stored on the run and readable via the API.
+#
+# Attributes are read from THIS FILE ONLY, and the value is used exactly as
+# written. A -D property does not set one, an environment variable does not set
+# one, and a ${env.VAR} placeholder is NOT substituted - it reaches the server as
+# that literal text and appears on the launch card. To carry CI values into a
+# run, use the two settings that do read the environment:
+#
+#   M00N_LAUNCH="$GITHUB_REF_NAME #$GITHUB_RUN_NUMBER" \
+#   M00N_TAGS="ci,$GITHUB_REF_NAME" ./gradlew test
 m00n.attribute.environment=staging
 m00n.attribute.browser=chromium
-m00n.attribute.ci=false
-
-# Recognized by the M00N dashboard - shown on each launch card.
-# ${env.VAR} is substituted from the environment when the file is read, so a CI
-# job can fill these in without a build script. If the variable is not set the
-# attribute is simply omitted, never sent as the literal placeholder.
-m00n.attribute.branch=${env.GITHUB_REF_NAME}
-m00n.attribute.triggered_by=${env.GITHUB_ACTOR}
-
-# Or skip the file entirely. Any M00N_ATTRIBUTE_<NAME> variable becomes the
-# attribute <name>, which is usually the least ceremony in CI:
-#   M00N_ATTRIBUTE_BRANCH=$CI_COMMIT_REF_NAME
-#   M00N_ATTRIBUTE_TRIGGERED_BY=$GITLAB_USER_LOGIN
-# Priority is the same as every other setting: -D system property, then the
-# environment, then this file.

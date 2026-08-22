@@ -83,8 +83,8 @@ mavenPublishing {
 
     pom {
         name.set("M00N JUnit Reporter")
-        description.set("Official JUnit 5 reporter for M00N Report, an AI-native test management platform - streams live results, retries, steps and attachments into your test cases and releases.")
-        url.set("https://github.com/m00nsolutions/m00n-junit-reporter")
+        description.set("Official JUnit 5 reporter for M00N Report, an AI-native test management platform. Streams live results, retries, @Step timings and attachments into your test cases and releases. Playwright Java screenshots and traces are captured automatically when a test drives a browser, but nothing here requires Playwright. Setup, configuration and troubleshooting: https://github.com/m00nreport/junit5-reporter")
+        url.set("https://github.com/m00nreport/junit5-reporter")
 
         licenses {
             license {
@@ -102,9 +102,9 @@ mavenPublishing {
         }
 
         scm {
-            connection.set("scm:git:git://github.com/m00nsolutions/m00n-junit-reporter.git")
-            developerConnection.set("scm:git:ssh://github.com:m00nsolutions/m00n-junit-reporter.git")
-            url.set("https://github.com/m00nsolutions/m00n-junit-reporter")
+            connection.set("scm:git:git://github.com/m00nreport/junit5-reporter.git")
+            developerConnection.set("scm:git:ssh://github.com:m00nreport/junit5-reporter.git")
+            url.set("https://github.com/m00nreport/junit5-reporter")
         }
     }
 }
