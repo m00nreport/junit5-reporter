@@ -29,3 +29,9 @@ m00n.maxRetries=3
 m00n.attribute.environment=staging
 m00n.attribute.browser=chromium
 m00n.attribute.ci=false
+
+# Recognized by the M00N dashboard - shown on each launch card.
+# Wire to your CI env vars (e.g. GITHUB_REF_NAME, GITHUB_ACTOR, CI_COMMIT_REF_NAME, CI_GITLAB_USER_LOGIN)
+# via Gradle/Maven systemProperty + System.getenv, or set them directly.
+m00n.attribute.branch=main
+m00n.attribute.triggered_by=oleg-dev

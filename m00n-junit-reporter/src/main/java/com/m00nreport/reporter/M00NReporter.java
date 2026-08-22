@@ -412,7 +412,7 @@ public class M00NReporter {
                 stepItem.put("error", errorMap);
             }
             
-            // Fire-and-forget — batcher coalesces with other in-flight steps
+            // Fire-and-forget - batcher coalesces with other in-flight steps
             // and POSTs every flushInterval ms (or sooner when maxBatchSize is reached).
             stepBatcher.add(stepItem);
 

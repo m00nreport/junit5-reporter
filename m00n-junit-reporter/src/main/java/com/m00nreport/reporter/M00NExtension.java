@@ -617,7 +617,7 @@ public class M00NExtension implements
                 Method method = context.getRequiredTestMethod();
                 annotation = method.getAnnotation(TestCaseId.class);
             } catch (Exception ignored) {
-                // No method context (e.g. class-disabled) — fall through to class lookup
+                // No method context (e.g. class-disabled) - fall through to class lookup
             }
             if (annotation == null) {
                 Class<?> testClass = context.getRequiredTestClass();

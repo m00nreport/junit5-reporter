@@ -23,7 +23,7 @@ import java.lang.annotation.*;
  * void smokeCoversThreeCases() { ... }
  * }</pre>
  *
- * <h2>Parametrized — one case per invocation</h2>
+ * <h2>Parametrized - one case per invocation</h2>
  * <pre>{@code
  * @ParameterizedTest
  * @ValueSource(strings = {"a", "b", "c", "d", "e", "f"})

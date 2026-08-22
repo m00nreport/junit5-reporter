@@ -77,7 +77,7 @@ mavenPublishing {
 
     pom {
         name.set("M00N JUnit Reporter")
-        description.set("JUnit 5 reporter for M00N Report - real-time test result streaming with retry tracking, attachments, and step reporting")
+        description.set("Official JUnit 5 reporter for M00N Report, an AI-native test management platform - streams live results, retries, steps and attachments into your test cases and releases.")
         url.set("https://github.com/m00nsolutions/m00n-junit-reporter")
 
         licenses {

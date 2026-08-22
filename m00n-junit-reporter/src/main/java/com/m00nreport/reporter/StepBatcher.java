@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code flushInterval} ms elapse since the first item arrived after the previous flush</li>
  * </ul>
  *
- * <p>Failure mode is fire-and-forget — if a batch POST drops, real-time
+ * <p>Failure mode is fire-and-forget - if a batch POST drops, real-time
  * step updates are lost from the WebSocket stream but the test's
  * {@code /test/complete} payload still carries the full step list, so the
  * dashboard remains consistent.</p>
@@ -81,7 +81,7 @@ public class StepBatcher {
                 try {
                     pendingFlush = scheduler.schedule(this::flush, flushInterval, TimeUnit.MILLISECONDS);
                 } catch (RejectedExecutionException ignored) {
-                    // Scheduler already shut down — flush inline
+                    // Scheduler already shut down - flush inline
                     flushNow = true;
                 }
             }
@@ -111,7 +111,7 @@ public class StepBatcher {
             httpClient.postAsync(path, payload);
             log.debug("[StepBatcher] Flushed {} items to {}", items.size(), path);
         } catch (Exception e) {
-            // Fire-and-forget — never propagate to test threads
+            // Fire-and-forget - never propagate to test threads
             log.debug("[StepBatcher] Flush failed: {}", e.getMessage());
         }
     }

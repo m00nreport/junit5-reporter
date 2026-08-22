@@ -16,27 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Step streaming is now batched.** Per-step events used to fire one HTTP POST each; they now coalesce in a 200 ms / 100-step window, mirroring the JS Playwright reporter. Under parallel test load (many `@Step` calls), this cuts step-stream HTTP traffic by 10–100× without changing the dashboard's real-time experience.
-- Same endpoint (`/api/ingest/v2/steps/stream`) and payload shape (`{ items: [...] }`) — backend unchanged.
+- Same endpoint (`/api/ingest/v2/steps/stream`) and payload shape (`{ items: [...] }`) - backend unchanged.
 - Failure mode is still fire-and-forget; if a batch POST drops, the test's final `/test/complete` payload still carries the full step list, so the dashboard stays consistent.
 
 ### Added
-- `StepBatcher` — thread-safe, size-or-time bounded buffer with a single-threaded daemon scheduler. Producers never block on network I/O.
+- `StepBatcher` - thread-safe, size-or-time bounded buffer with a single-threaded daemon scheduler. Producers never block on network I/O.
 
 ## [1.4.1] - 2026-05-26
 
 ### Security
-- Bump `com.google.code.gson:gson` 2.11.0 → 2.14.0 to address CVSS 6.9 (Medium) vulnerability flagged on the older version. Gson is used internally for serializing reporter payloads — no API change.
+- Bump `com.google.code.gson:gson` 2.11.0 → 2.14.0 to address CVSS 6.9 (Medium) vulnerability flagged on the older version. Gson is used internally for serializing reporter payloads - no API change.
 
 ## [1.4.0] - 2026-05-26
 
 ### Added
-- **`@TestCaseId` annotation** — declarative linking of JUnit 5 tests to M00N test cases, ReportPortal-compatible syntax:
-  - `@TestCaseId("634207")` — link a single test to one case.
-  - `@TestCaseId("634199, 634203, 634205")` — link a single non-parametrized test to multiple cases (one autotest covering several acceptance criteria).
-  - `@TestCaseId(parametrized = true, value = "634199, 634203, ...")` on `@ParameterizedTest` — invocation N links to `value[N-1]`.
+- **`@TestCaseId` annotation** - declarative linking of JUnit 5 tests to M00N test cases, ReportPortal-compatible syntax:
+  - `@TestCaseId("634207")` - link a single test to one case.
+  - `@TestCaseId("634199, 634203, 634205")` - link a single non-parametrized test to multiple cases (one autotest covering several acceptance criteria).
+  - `@TestCaseId(parametrized = true, value = "634199, 634203, ...")` on `@ParameterizedTest` - invocation N links to `value[N-1]`.
   - Class-level annotation acts as a fallback; method-level fully overrides class-level.
   - Multiple `@Test` methods may share the same case number, aggregating coverage from multiple autotests on one case.
-- Reporter injects `[TC-N]` markers into the test display name; the existing M00N ingest extractor resolves them to case IDs — **no backend changes required**.
+- Reporter injects `[TC-N]` markers into the test display name; the existing M00N ingest extractor resolves them to case IDs - **no backend changes required**.
 
 ## [1.2.4] - 2026-01-14
 

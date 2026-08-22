@@ -1,6 +1,6 @@
 # M00N Playwright JUnit Reporter
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.m00nreport%20a:m00n-junit-reporter)
+[![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.m00nreport/m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that sends test results in real-time to your dashboard. Designed for **Playwright Java** browser automation with the JUnit Jupiter test platform.
@@ -164,7 +164,23 @@ m00n.debug=false
 # Optional: Custom attributes
 m00n.attribute.environment=staging
 m00n.attribute.browser=chromium
+
+# Recognized by the dashboard - shown on the launch card.
+# Wire to your CI env vars or set directly.
+m00n.attribute.branch=${env.GITHUB_REF_NAME}
+m00n.attribute.triggered_by=${env.GITHUB_ACTOR}
 ```
+
+#### Recognized attribute keys
+
+The dashboard renders these keys specially on each launch card:
+
+| Key | Type | Shown as | Example value |
+|-----|------|----------|---------------|
+| `branch` | `string` | Branch icon + value | `main`, `feature/checkout-v2` |
+| `triggered_by` | `string` | User icon + value | `oleg-dev`, `oleg@m00nreport.com` |
+
+Any other `m00n.attribute.*` key is stored on the run and available via the API, but is not surfaced on the launch card.
 
 ### 2. Enable Extension Auto-Detection
 
@@ -508,11 +524,11 @@ void flakyApiTest() {
 
 ---
 
-## 🔗 Linking Autotests to Test Cases — `@TestCaseId`
+## 🔗 Linking Autotests to Test Cases - `@TestCaseId`
 
 Use `@TestCaseId` to declaratively link a JUnit test to one or more
 manual test cases in M00N Report. The reporter injects `[TC-N]` markers
-into the test name and the ingest service resolves them to case IDs —
+into the test name and the ingest service resolves them to case IDs -
 no backend setup required.
 
 > Available since `1.4.0`.
@@ -538,7 +554,7 @@ void smokeCoversThreeCases() {
 }
 ```
 
-### Parametrized — invocation N links to value[N-1]
+### Parametrized - invocation N links to value[N-1]
 
 ```java
 @ParameterizedTest
@@ -578,7 +594,7 @@ class CheckoutSuite {
 
 ### Multiple autotests on the same case
 
-Different `@Test` methods can carry the same `@TestCaseId` — the case
+Different `@Test` methods can carry the same `@TestCaseId` - the case
 will show all of them as linked autotests:
 
 ```java
@@ -599,7 +615,7 @@ void apiCoversCase5() { ... }
 | `@TestCaseId("A, B, C")` | `@Test` | all 3 cases linked to that test |
 | `@TestCaseId(parametrized=true, value="A,B,C,D")` | `@ParameterizedTest` | invocation K → value[K-1] |
 | `@TestCaseId("N")` | `@ParameterizedTest` | same case on every invocation |
-| Mismatched usage (e.g. parametrized=true on `@Test`) | — | reporter logs warning, uses first value |
+| Mismatched usage (e.g. parametrized=true on `@Test`) | - | reporter logs warning, uses first value |
 
 ---
 
@@ -704,4 +720,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 - [M00N Report Dashboard](https://m00nreport.com)
 - [Documentation](https://m00nreport.com/documentation)
-- [Issue Tracker](https://github.com/m00nsolutions/m00nreport/issues)
+- [Issue Tracker](https://github.com/m00nreport/junit5-reporter/issues)

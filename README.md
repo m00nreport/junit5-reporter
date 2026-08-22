@@ -1,6 +1,6 @@
 # M00N Playwright JUnit Reporter
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.m00nreport%20a:m00n-junit-reporter)
+[![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.m00nreport/m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A **Playwright JUnit** reporter for [M00N Report](https://m00nreport.com) that streams test results in real-time. Designed for **Playwright Java** browser automation with the JUnit Jupiter test platform.
@@ -66,6 +66,11 @@ Create `src/test/resources/m00n.properties`:
 m00n.serverUrl=https://m00nreport.com
 m00n.apiKey=m00n_your_api_key_here
 m00n.launch=Playwright Tests
+
+# Optional: show branch + user on the launch card in the M00N dashboard.
+# Wire these to your CI env vars (Gradle systemProperty + System.getenv) or set them directly.
+m00n.attribute.branch=${env.GITHUB_REF_NAME}
+m00n.attribute.triggered_by=${env.GITHUB_ACTOR}
 ```
 
 Create `src/test/resources/junit-platform.properties`:
@@ -137,7 +142,7 @@ m00n-junit-reporter/
 
 ```bash
 # Clone the repository
-git clone https://github.com/m00nsolutions/m00n-junit-reporter.git
+git clone https://github.com/m00nreport/junit5-reporter.git
 cd m00n-junit-reporter
 
 # Build
@@ -158,4 +163,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 - [M00N Report Dashboard](https://m00nreport.com)
 - [Documentation](https://m00nreport.com/documentation/reporters/junit)
-- [Issue Tracker](https://github.com/m00nsolutions/m00n-junit-reporter/issues)
+- [Issue Tracker](https://github.com/m00nreport/junit5-reporter/issues)
