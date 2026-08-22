@@ -111,6 +111,12 @@ public class TestResult {
     
     public StepData addStep(String title, String category) {
         StepData step = new StepData(title, category, stepIndex++);
+        // Honour the current nesting level. The @Step aspect maintains it around every annotated
+        // method, but this - the API a user reaches for when adding a step by hand - created every
+        // step at level 0, so a manually built hierarchy rendered as a flat list however it was
+        // written. Wrap the inner calls in M00NStep.incrementNestingLevel/decrementNestingLevel to
+        // build one.
+        step.setNestingLevel(com.m00nreport.reporter.M00NStep.getCurrentNestingLevel());
         steps.add(step);
         
         // Stream step to server in real-time

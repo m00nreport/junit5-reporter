@@ -171,8 +171,12 @@ public class M00NExtension implements
             // This is critical when customers have their own extensions that close the context
             capturePlaywrightArtifacts(testResult, extensionContext);
             
-            // Test failed - report immediately (before JUnit Pioneer catches for retry)
-            reportTestResult(extensionContext, "failed", t);
+            // Test finished abnormally - report immediately, before a retry extension catches it.
+            // NOT unconditionally "failed": an abandoned assumption is a SKIP, and reporting it as
+            // a failure here also silenced the testAborted callback below, which had the right
+            // rule and never got to apply it because this line had already marked the test as
+            // reported.
+            reportTestResult(extensionContext, classifyThrowable(t), t);
             throw t; // Re-throw so JUnit Pioneer can handle retry
         }
     }
@@ -397,30 +401,41 @@ public class M00NExtension implements
         completeTest(context, "failed", cause);
     }
     
+    /**
+     * Decides whether a throwable that ended a test means "skipped" or "failed".
+     *
+     * <p>An abandoned assumption is a skip: {@code Assumptions.assumeTrue(false)} raises
+     * {@code TestAbortedException} with a message beginning "Assumption failed" and no cause.</p>
+     *
+     * <p>A retry extension is the complication. JUnit Pioneer's {@code @RetryingTest} reports a
+     * failed ATTEMPT the same way - through {@code TestAbortedException} - but wraps the real
+     * failure, so a cause or an unrelated message means the test failed rather than opted out.</p>
+     *
+     * <p>Package-private and static so it can be tested directly, and so there is exactly one copy
+     * of this rule. There used to be two, and only one of them ran: the interceptor reported every
+     * throwable as failed and marked the test reported, which made the correct version below
+     * unreachable and turned every skipped test into a failed one.</p>
+     */
+    static String classifyThrowable(Throwable cause) {
+        if (cause == null) {
+            return "skipped";
+        }
+        if (!(cause instanceof org.opentest4j.TestAbortedException)) {
+            return "failed";
+        }
+        if (cause.getCause() != null) {
+            return "failed";
+        }
+        String message = cause.getMessage();
+        if (message != null && !message.contains("Assumption")) {
+            return "failed";
+        }
+        return "skipped";
+    }
+
     @Override
     public void testAborted(ExtensionContext context, Throwable cause) {
-        // JUnit Pioneer's @RetryingTest calls testAborted when a retry attempt fails
-        // but wraps the failure in TestAbortedException. We need to detect this and
-        // report as "failed" not "skipped".
-        //
-        // Real skips (Assumptions.assumeTrue) have TestAbortedException without a cause.
-        // Retry failures have TestAbortedException WITH a wrapped cause or message.
-        String status = "skipped";
-        
-        if (cause != null) {
-            if (cause instanceof org.opentest4j.TestAbortedException) {
-                // Check if it's a wrapped failure (has cause) or has a failure-like message
-                if (cause.getCause() != null || 
-                    (cause.getMessage() != null && !cause.getMessage().contains("Assumption"))) {
-                    status = "failed";
-                }
-            } else {
-                // Any other exception is a real failure
-                status = "failed";
-            }
-        }
-        
-        completeTest(context, status, cause);
+        completeTest(context, classifyThrowable(cause), cause);
     }
     
     @Override
@@ -539,6 +554,20 @@ public class M00NExtension implements
                     }
                 }
                 
+                // An invocation index on its own is not a name. JUnit Pioneer's @RetryingTest is
+                // a test template, so the branch above deliberately prefers the invocation's
+                // display name over the method's @DisplayName - correct for @ParameterizedTest,
+                // where the invocation name carries the arguments, and wrong here, because Pioneer
+                // names its invocations "[1]" and "[2]". Every retried test therefore arrived in
+                // the dashboard called "[1]", including for anyone following this reporter's own
+                // advice to use @RetryingTest instead of its deprecated @Retry.
+                if (isBareInvocationIndex(contextDisplayName)) {
+                    if (displayName != null && !displayName.value().isEmpty()) {
+                        return displayName.value();
+                    }
+                    return humanizeMethodName(method.getName());
+                }
+
                 // Return context display name as-is (includes parameterized test info)
                 return contextDisplayName;
             }
@@ -551,6 +580,29 @@ public class M00NExtension implements
         }
     }
     
+    /**
+     * True when a display name is nothing but an invocation index: "[1]", "[2]".
+     *
+     * <p>Package-private and static so it can be tested without an ExtensionContext. The rule is
+     * deliberately narrow - a parameterized invocation named "[chromium]" carries information and
+     * must be left alone, so only digits count.</p>
+     */
+    static boolean isBareInvocationIndex(String displayName) {
+        if (displayName == null) {
+            return false;
+        }
+        String trimmed = displayName.trim();
+        if (trimmed.length() < 3 || trimmed.charAt(0) != '[' || trimmed.charAt(trimmed.length() - 1) != ']') {
+            return false;
+        }
+        for (int i = 1; i < trimmed.length() - 1; i++) {
+            if (!Character.isDigit(trimmed.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Converts camelCase method name to readable format.
      * e.g., "testUserLogin" -> "Test user login"
@@ -591,7 +643,14 @@ public class M00NExtension implements
         }
         StringBuilder sb = new StringBuilder(base);
         for (int num : caseNumbers) {
-            sb.append(" [TC-").append(num).append("]");
+            // Skip a marker the display name already carries. Writing
+            // @DisplayName("login [TC-1]") next to @TestCaseId("1") is a reasonable thing to do -
+            // the name reads correctly in an IDE and the annotation is the machine-readable form -
+            // and it used to produce "login [TC-1] [TC-1]" on the launch card.
+            String marker = " [TC-" + num + "]";
+            if (sb.indexOf(marker.trim()) < 0) {
+                sb.append(marker);
+            }
         }
         return sb.toString();
     }
@@ -742,8 +801,52 @@ public class M00NExtension implements
             return info.attempt;
         }
         
+        // JUnit Pioneer 2.x does not name its invocations "Attempt N" - it names them "[1]",
+        // "[2]". The comment on RETRY_PATTERN is right that a bracketed index is not a retry in
+        // general, because that is exactly how @ParameterizedTest names an invocation too. The
+        // annotation is what separates them, so the index counts as an attempt only on a method
+        // that actually declares a retrying test.
+        //
+        // Until this existed every attempt of every retried Java test was reported with retry=0,
+        // so the dashboard saw two unrelated results for one test rather than a retry, and the
+        // conformance suite's RETRY_MONOTONIC invariant had nothing to check.
+        if (isRetryingTest(context)) {
+            Matcher indexMatcher = INVOCATION_INDEX_PATTERN.matcher(context.getUniqueId());
+            if (indexMatcher.find()) {
+                int attempt = Integer.parseInt(indexMatcher.group(1));
+                log.debug("[M00NExtension] Retrying test, attempt {} from invocation index", attempt);
+                return attempt;
+            }
+        }
+
         log.debug("[M00NExtension] No retry attempt detected (not @RetryingTest), returning 0");
         return 0;
+    }
+
+    /**
+     * True when the test method declares a retrying test.
+     *
+     * <p>Matched by annotation SIMPLE NAME so this library does not take a compile dependency on
+     * JUnit Pioneer, which is optional for consumers - the reporter must work in a project that
+     * has never heard of it.</p>
+     */
+    private boolean isRetryingTest(ExtensionContext context) {
+        try {
+            for (java.lang.annotation.Annotation annotation :
+                    context.getRequiredTestMethod().getAnnotations()) {
+                if (isRetryingAnnotationName(annotation.annotationType().getSimpleName())) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            // no test method in this context; not a retry
+        }
+        return false;
+    }
+
+    /** Package-private and static so the name list can be tested without a JUnit context. */
+    static boolean isRetryingAnnotationName(String simpleName) {
+        return "RetryingTest".equals(simpleName) || "Retry".equals(simpleName);
     }
     
     private static class RetryInfo {
