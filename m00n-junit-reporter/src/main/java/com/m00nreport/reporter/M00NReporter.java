@@ -115,6 +115,19 @@ public class M00NReporter {
     }
     
     /**
+     * Test seam: drop the singleton so the next initialize() builds a fresh one.
+     *
+     * <p>initialize() deliberately refuses to replace a reporter whose run has started, which is
+     * right in production and makes each test in a suite inherit the previous one's instance -
+     * still pointed at a server that has since been stopped.</p>
+     */
+    static void resetForTesting() {
+        synchronized (lock) {
+            instance = null;
+        }
+    }
+
+    /**
      * Check if reporter is enabled and ready.
      */
     public boolean isEnabled() {
@@ -274,7 +287,19 @@ public class M00NReporter {
      * @param actualClassName Full class name for file path (e.g., com.example.MyTest)
      * @param retry Retry attempt number (0 for first run, 1 for first retry, etc.)
      */
-    public TestResult startTest(String suiteDisplayName, String testDisplayName, String actualClassName, int retry) {
+    /**
+     * Start tracking a test under an explicit key.
+     *
+     * <p>The key is what pairs a result with the start that opened it, and display names are not
+     * unique: "returns 200" and "renders" live in half the classes in a suite, and a
+     * {@code @ParameterizedTest} repeats one name across every invocation. Keyed on the display
+     * name, the second start overwrote the first, so one test's result was reported against the
+     * other's id - with its timings, its steps and its attachments - and the other was never
+     * completed at all. Both looked real. The extension passes JUnit's own uniqueId, which is
+     * unique per invocation and per retry.</p>
+     */
+    public TestResult startTest(String suiteDisplayName, String testDisplayName, String actualClassName,
+                                int retry, String key) {
         if (!enabled || !runStarted) return null;
         
         testsStarted.incrementAndGet(); // Count actual test executions
@@ -286,7 +311,6 @@ public class M00NReporter {
         result.start(runId, suiteDisplayName, testDisplayName, actualClassName);
         result.setRetry(retry); // Set retry BEFORE sending to API
         
-        String key = getTestKey(suiteDisplayName, testDisplayName);
         activeTests.put(key, result);
         
         // Fire-and-forget test start
@@ -308,10 +332,13 @@ public class M00NReporter {
     /**
      * Complete a test and report results.
      */
-    public void completeTest(String className, String methodName, String status, Throwable error) {
+    /**
+     * Complete the test opened under this key. See
+     * {@link #startTest(String, String, String, int, String)} for why the key is not the name.
+     */
+    public void completeTest(String status, Throwable error, String key) {
         if (!enabled || !runStarted) return;
         
-        String key = getTestKey(className, methodName);
         TestResult result = activeTests.remove(key);
         
         if (result == null) {
@@ -388,10 +415,13 @@ public class M00NReporter {
     }
     
     /**
-     * Get active test result for adding steps/attachments.
+     * The test opened under this key, for adding steps or attachments to it.
+     *
+     * <p>Keyed rather than named, for the reason in
+     * {@link #startTest(String, String, String, int, String)}: two tests can share a display name
+     * and a step filed under the name reaches whichever of them started last.</p>
      */
-    public TestResult getActiveTest(String className, String methodName) {
-        String key = getTestKey(className, methodName);
+    public TestResult getActiveTest(String key) {
         return activeTests.get(key);
     }
     
@@ -467,8 +497,15 @@ public class M00NReporter {
         log.info("[M00NReporter] Attaching {} ({} bytes) to test {}", 
             attachment.getName(), attachment.getSize(), testId);
         
-        // Upload immediately
-        uploadExecutor.submit(() -> {
+        // Upload immediately, and REGISTER the future.
+        //
+        // It was submitted and forgotten, so waitForPendingUploads() - which run/end calls
+        // precisely to avoid this - had nothing to wait for on the Playwright path: nothing else
+        // in the library ever populated pendingUploads for it. A multi-megabyte trace loses that
+        // race almost every time, and the 409 RUN_NOT_ACTIVE that follows is a permanent code, so
+        // it is not retried. The artifact anyone actually opens - the trace for the last failing
+        // test - was the one most likely to vanish.
+        Future<?> future = uploadExecutor.submit(() -> {
             try {
                 httpClient.uploadAttachment(
                     "/api/ingest/v2/attachment/upload",
@@ -476,11 +513,14 @@ public class M00NReporter {
                     runId,
                     attachment
                 );
+                attachmentsUploaded.incrementAndGet();
             } catch (Exception e) {
                 log.warn("[M00NReporter] Failed to upload attachment {}: {}", 
                     attachment.getName(), e.getMessage());
+                errors.incrementAndGet();
             }
         });
+        pendingUploads.add(future);
     }
     
     /**
@@ -658,9 +698,6 @@ public class M00NReporter {
         }
     }
     
-    private String getTestKey(String className, String methodName) {
-        return className + "#" + methodName;
-    }
     
     public String getRunId() {
         return runId;

@@ -64,17 +64,19 @@ public class M00NStepExtension implements InvocationInterceptor {
         }
         
         var step = testResult.addStep(stepTitle.get(), "step");
-        var startTime = System.currentTimeMillis();
         
+        // Through completeStep, not by setting the fields here. addStep streams an "append" event
+        // to the live view, and only completeStep streams the matching "end" - so a step finished
+        // by hand stayed "running" in the UI until the whole test's payload arrived at the end.
+        // Every @Step on a @BeforeEach spent the entire test looking like it had not returned.
+        // completeStep also measures the duration from addStep's own stamp, so the two paths
+        // cannot disagree about when the step began.
         try {
             invocation.proceed();
-            step.setStatus("passed");
+            testResult.completeStep(step, true, null);
         } catch (Throwable t) {
-            step.setStatus("failed");
-            step.setError(new ErrorData(t));
+            testResult.completeStep(step, false, t);
             throw t;
-        } finally {
-            step.setDuration(System.currentTimeMillis() - startTime);
         }
     }
     

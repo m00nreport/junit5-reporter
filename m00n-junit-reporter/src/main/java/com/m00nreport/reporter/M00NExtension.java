@@ -94,7 +94,7 @@ public class M00NExtension implements
             String className = context.getRequiredTestClass().getName();
             
             // Pass retry count to startTest so it's included in the API request
-            TestResult result = reporter.startTest(suiteName, testName, className, retry);
+            TestResult result = reporter.startTest(suiteName, testName, className, retry, context.getUniqueId());
             if (result != null) {
                 log.debug("[M00NExtension] Test started: suite='{}', test='{}', retry={}", 
                     suiteName, testName, retry);
@@ -161,8 +161,19 @@ public class M00NExtension implements
         
         try {
             invocation.proceed();
-            // Test passed - report immediately
-            reportTestResult(extensionContext, "passed", null);
+            // A test body that returned is NOT a passed test yet, and reporting it here said it
+            // was. @AfterEach has not run: a failing cleanup assertion, a leaked-resource check, a
+            // verify() in a teardown - all of them fail the test as far as JUnit and the exit code
+            // are concerned, and the dashboard had already recorded a pass. A red build with a
+            // green dashboard is the worst disagreement of the two, and it quietly corrupts pass
+            // rate and flakiness on top.
+            //
+            // So the pass path defers to the TestWatcher callbacks below, which fire AFTER every
+            // teardown with the outcome JUnit itself settled on. It also means an @Step inside
+            // @AfterEach is still collectible when the result is built.
+            //
+            // The FAILURE path still reports here, and must: a retry extension catches the throw
+            // one frame up, and after that this attempt no longer exists to report.
         } catch (Throwable t) {
             // Mark test as failed
             M00NStep.markFailed();
@@ -381,7 +392,7 @@ public class M00NExtension implements
             log.debug("[M00NExtension] Reporting test via interceptor: suite='{}', test='{}', status='{}', retry={}",
                 suiteName, testName, status, testResult.getRetry());
             
-            reporter.completeTest(suiteName, testName, status, error);
+            reporter.completeTest(status, error, context.getUniqueId());
         } catch (Exception e) {
             log.warn("[M00NExtension] reportTestResult failed: {}", e.getMessage());
         }
@@ -449,9 +460,9 @@ public class M00NExtension implements
             String className = context.getRequiredTestClass().getName();
 
             // Disabled tests are always first run (retry=0)
-            TestResult result = reporter.startTest(suiteName, testName, className, 0);
+            TestResult result = reporter.startTest(suiteName, testName, className, 0, context.getUniqueId());
             if (result != null) {
-                reporter.completeTest(suiteName, testName, "skipped", null);
+                reporter.completeTest("skipped", null, context.getUniqueId());
             }
         } catch (Exception e) {
             log.warn("[M00NExtension] testDisabled failed: {}", e.getMessage());
@@ -476,7 +487,7 @@ public class M00NExtension implements
             // Mark as reported before calling completeTest
             reportedInCurrentTest.set(true);
             
-            reporter.completeTest(suiteName, testName, status, error);
+            reporter.completeTest(status, error, context.getUniqueId());
         } catch (Exception e) {
             log.warn("[M00NExtension] completeTest failed: {}", e.getMessage());
         }

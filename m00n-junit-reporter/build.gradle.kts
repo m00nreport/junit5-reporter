@@ -47,12 +47,18 @@ dependencies {
     // Test dependencies
     testImplementation(platform("org.junit:junit-bom:5.11.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // On the compile classpath, not just runtime: the extension's own behaviour is only
+    // observable by running a real suite through the launcher inside a test.
+    testImplementation("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.junit.platform:junit-platform-testkit")
     testImplementation("ch.qos.logback:logback-classic:1.5.12")
 }
 
 tasks.test {
     useJUnitPlatform()
+    // Suites that exist to be run BY a test, not as one. One of them fails on purpose - a fixture
+    // that fails the build it is meant to be studied by is useless.
+    exclude("**/fixtures/**")
 }
 
 // Javadoc configuration
