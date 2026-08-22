@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- The client no longer follows HTTP redirects. The project API key travels in `X-API-Key`, a custom header, and a client drops only the standard `Authorization` header when a redirect crosses to another host, so a redirect from the configured server could have delivered the key to any host it named. The ingest API does not redirect, so one is now reported as an error instead.
+- An attachment's content type is sent only when it is a plain `type/subtype`; anything else uploads as `application/octet-stream`, which is what the server records for a part that declares no type. A quoted parameter value may hold a CR or LF, which ends the multipart part header and injects a line into an authenticated upload. Attachment names were already safe: OkHttp percent-encodes CR, LF and `"` in a part filename.
+
 ## [1.5.1] - 2026-05-27
 
 ### Changed

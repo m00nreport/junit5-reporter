@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 /**
  * HTTP client for M00N Report ingest API.
@@ -67,6 +68,12 @@ public class M00NHttpClient {
      */
     private static final int CIRCUIT_BREAKER_THRESHOLD = 5;
 
+    /** A bare media type: one token, a slash, one token, and nothing else. */
+    private static final Pattern TYPE_SUBTYPE =
+        Pattern.compile("[A-Za-z0-9!#$%&'*+.^_`|~-]+/[A-Za-z0-9!#$%&'*+.^_`|~-]+");
+
+    private static final MediaType OCTET_STREAM = MediaType.get("application/octet-stream");
+
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private final AtomicBoolean circuitOpen = new AtomicBoolean(false);
 
@@ -105,6 +112,12 @@ public class M00NHttpClient {
             .writeTimeout(Duration.ofMillis(config.getTimeout()))
             .retryOnConnectionFailure(true)
             .connectionPool(new ConnectionPool(5, 60, TimeUnit.SECONDS))
+            // The API key travels in X-API-Key. A client drops the standard Authorization header
+            // when a redirect crosses to another host and keeps every custom one, so a followed
+            // redirect would hand the key to whatever host the Location names. The ingest API does
+            // not redirect, so one is reported as an error instead.
+            .followRedirects(false)
+            .followSslRedirects(false)
             .build();
         
         this.gson = new GsonBuilder()
@@ -165,6 +178,22 @@ public class M00NHttpClient {
     }
     
     /**
+     * The media type a multipart part may carry, given what an attachment declares.
+     *
+     * <p>The part header is written from this string as it stands, and a quoted parameter value may
+     * hold a CR or an LF, which ends the header and turns the rest into an injected line. Only a
+     * bare type/subtype is sent; anything else uploads as application/octet-stream, which is what
+     * the server records for a part that declares no type.</p>
+     */
+    static MediaType safeMediaType(String contentType) {
+        if (contentType == null || !TYPE_SUBTYPE.matcher(contentType).matches()) {
+            return OCTET_STREAM;
+        }
+        MediaType parsed = MediaType.parse(contentType);
+        return parsed != null ? parsed : OCTET_STREAM;
+    }
+
+    /**
      * Upload file via multipart form.
      */
     public JsonObject uploadFile(String path, Map<String, String> fields, File file, 
@@ -178,8 +207,7 @@ public class M00NHttpClient {
         }
         
         // Add file
-        MediaType mediaType = MediaType.parse(contentType);
-        builder.addFormDataPart("file", filename, RequestBody.create(file, mediaType));
+        builder.addFormDataPart("file", filename, RequestBody.create(file, safeMediaType(contentType)));
         
         Request request = new Request.Builder()
             .url(baseUrl + path)
@@ -204,8 +232,7 @@ public class M00NHttpClient {
         }
         
         // Add file data
-        MediaType mediaType = MediaType.parse(contentType);
-        builder.addFormDataPart("file", filename, RequestBody.create(data, mediaType));
+        builder.addFormDataPart("file", filename, RequestBody.create(data, safeMediaType(contentType)));
         
         Request request = new Request.Builder()
             .url(baseUrl + path)
@@ -379,6 +406,14 @@ public class M00NHttpClient {
             }
         } catch (RuntimeException ignored) {
             // Not JSON. The status code still classifies it.
+        }
+
+        // Redirects are not followed, so one means the configured URL does not point at the ingest
+        // API. Another attempt would land on the same redirect.
+        if (status >= 300 && status < 400) {
+            return new PermanentException(
+                "Server redirected (HTTP " + status + "). Check serverUrl: the ingest API does not redirect,"
+                    + " and the API key is not sent to the redirect target.", false);
         }
 
         // The attachment limit is signalled by status alone on some paths, so this
