@@ -13,7 +13,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * HTTP client for M00N Report ingest API.
@@ -30,6 +33,53 @@ public class M00NHttpClient {
     private final Gson gson;
     private final int maxRetries;
     private final boolean debug;
+
+    /**
+     * Errors retrying cannot fix. Taken from the codes services/ingest actually
+     * emits, not from the sibling reporters - the JS ones also list
+     * PROJECT_NOT_FOUND, which the service has never sent.
+     */
+    private static final Set<String> PERMANENT_CODES = Set.of(
+        "API_KEY_REQUIRED", "INVALID_API_KEY", "INVALID_API_KEY_FORMAT",
+        "SUBSCRIPTION_INACTIVE", "RUN_ACCESS_DENIED", "RUN_NOT_FOUND",
+        "RUN_NOT_ACTIVE", "ATTACHMENT_TOO_LARGE", "RUN_ATTACHMENT_LIMIT_EXCEEDED",
+        "PRESIGN_BINDING_UNKNOWN", "UPLOAD_NOT_FOUND"
+    );
+
+    /**
+     * The subset that condemns the whole run rather than one request. A wrong or
+     * unauthorised credential will be just as wrong on the next test, so there is
+     * nothing to gain by asking again 200 more times.
+     *
+     * Deliberately NOT everything permanent: an oversized attachment is a verdict
+     * on that file, and treating it as fatal would let one big video silence the
+     * reporting of every test after it.
+     */
+    private static final Set<String> FATAL_CODES = Set.of(
+        "API_KEY_REQUIRED", "INVALID_API_KEY", "INVALID_API_KEY_FORMAT",
+        "SUBSCRIPTION_INACTIVE"
+    );
+
+    /**
+     * Consecutive failed calls before the client stops trying. Matches the other
+     * reporters in the family. Only service-level failures count: a permanent
+     * per-request verdict says nothing about whether the service is up.
+     */
+    private static final int CIRCUIT_BREAKER_THRESHOLD = 5;
+
+    private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    private final AtomicBoolean circuitOpen = new AtomicBoolean(false);
+
+    /** A server verdict that another attempt cannot change. */
+    private static class PermanentException extends IOException {
+        private static final long serialVersionUID = 1L;
+        private final boolean fatal;
+
+        PermanentException(String message, boolean fatal) {
+            super(message);
+            this.fatal = fatal;
+        }
+    }
     
     public M00NHttpClient(M00NConfig config) {
         String serverUrl = config.getServerUrl();
@@ -212,47 +262,45 @@ public class M00NHttpClient {
      * Execute request with exponential backoff retry.
      */
     private JsonObject executeWithRetry(Request request, String path) throws IOException {
+        if (circuitOpen.get()) {
+            throw new IOException("Reporting disabled for this run after repeated failures");
+        }
+
         IOException lastException = null;
-        
+
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 try (Response response = client.newCall(request).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "{}";
-                    
+
                     if (response.isSuccessful()) {
                         if (debug) {
                             log.debug("Response from {}: {}", path, responseBody);
                         }
+                        consecutiveFailures.set(0);
                         return gson.fromJson(responseBody, JsonObject.class);
                     }
-                    
-                    // Check for permanent errors
-                    JsonObject errorJson = gson.fromJson(responseBody, JsonObject.class);
-                    String errorCode = errorJson.has("code") ? errorJson.get("code").getAsString() : null;
-                    
-                    if ("PROJECT_NOT_FOUND".equals(errorCode) || 
-                        "API_KEY_REQUIRED".equals(errorCode) || 
-                        "INVALID_API_KEY".equals(errorCode)) {
-                        throw new IOException("Permanent error: " + errorCode);
-                    }
-                    
-                    // HTTP 413 / attachment limit exceeded - permanent, do not retry
-                    if (response.code() == 413 || "RUN_ATTACHMENT_LIMIT_EXCEEDED".equals(errorCode)) {
-                        String message = errorJson.has("message") ? errorJson.get("message").getAsString() : "Run attachment limit exceeded";
-                        log.warn("[M00NReporter] Attachment upload rejected: {}. Remaining uploads for this run may be skipped.", message);
-                        throw new IOException("Permanent error: " + (errorCode != null ? errorCode : "HTTP_413") + " - " + message);
-                    }
-                    
-                    // Transient error - retry
-                    lastException = new IOException("HTTP " + response.code() + ": " + responseBody);
+
+                    throw classifyError(response.code(), responseBody);
                 }
+            } catch (PermanentException e) {
+                // Caught BEFORE the IOException handler below, which is the whole
+                // point. This used to be an ordinary IOException raised inside the
+                // try, so the retry handler one line down caught the signal meant
+                // to bypass it, slept, and asked again. An INVALID_API_KEY cost
+                // three attempts and three seconds of sleeping on every call for
+                // the whole suite.
+                if (e.fatal) {
+                    openCircuit(e.getMessage());
+                }
+                throw e;
             } catch (IOException e) {
                 lastException = e;
-                
+
                 if (attempt < maxRetries) {
                     long delay = Math.min(1000L * (1L << (attempt - 1)), 5000L);
                     if (debug) {
-                        log.warn("Retry {}/{} for {} after {}ms: {}", 
+                        log.warn("Retry {}/{} for {} after {}ms: {}",
                             attempt, maxRetries, path, delay, e.getMessage());
                     }
                     try {
@@ -264,8 +312,70 @@ public class M00NHttpClient {
                 }
             }
         }
-        
+
+        int failures = consecutiveFailures.incrementAndGet();
+        if (failures == 1) {
+            // The first failure is the one worth saying out loud. Warning only at
+            // the threshold means a suite shorter than five calls against a dead
+            // server says nothing at all.
+            log.warn("[M00NReporter] Cannot reach the reporting service: {}. Tests continue regardless.",
+                lastException != null ? lastException.getMessage() : "unknown error");
+        }
+        if (failures >= CIRCUIT_BREAKER_THRESHOLD) {
+            openCircuit(failures + " consecutive failures");
+        }
+
         throw lastException != null ? lastException : new IOException("Unknown error");
+    }
+
+    /**
+     * Decide whether a non-2xx response is worth another attempt.
+     *
+     * Parsing is defensive because the body is not always ours. A proxy or CDN
+     * answering 413 or 502 sends HTML or plain text, and gson throws an unchecked
+     * JsonSyntaxException on it - which is not an IOException, so it escaped the
+     * retry handler entirely and propagated out of the reporter.
+     */
+    private IOException classifyError(int status, String responseBody) {
+        String errorCode = null;
+        String message = null;
+        try {
+            JsonObject errorJson = gson.fromJson(responseBody, JsonObject.class);
+            if (errorJson != null) {
+                if (errorJson.has("code") && errorJson.get("code").isJsonPrimitive()) {
+                    errorCode = errorJson.get("code").getAsString();
+                }
+                if (errorJson.has("message") && errorJson.get("message").isJsonPrimitive()) {
+                    message = errorJson.get("message").getAsString();
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Not JSON. The status code still classifies it.
+        }
+
+        // The attachment limit is signalled by status alone on some paths, so this
+        // rule must not depend on the body parsing into anything.
+        if (status == 413) {
+            log.warn("[M00NReporter] Attachment upload rejected: {}. Remaining uploads for this run may be skipped.",
+                message != null ? message : "payload too large");
+            return new PermanentException(
+                "Permanent error: " + (errorCode != null ? errorCode : "HTTP_413"), false);
+        }
+
+        if (errorCode != null && PERMANENT_CODES.contains(errorCode)) {
+            return new PermanentException("Permanent error: " + errorCode,
+                FATAL_CODES.contains(errorCode));
+        }
+
+        return new IOException("HTTP " + status + ": " + responseBody);
+    }
+
+    /** Stop asking. Said once, because a line per remaining test is noise. */
+    private void openCircuit(String reason) {
+        if (circuitOpen.compareAndSet(false, true)) {
+            log.warn("[M00NReporter] Reporting disabled for the rest of this run ({}). Tests continue regardless.",
+                reason);
+        }
     }
     
     /**
