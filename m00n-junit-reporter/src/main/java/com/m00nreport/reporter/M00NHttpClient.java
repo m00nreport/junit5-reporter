@@ -240,22 +240,39 @@ public class M00NHttpClient {
     /**
      * Check if server is available.
      */
+    /**
+     * Liveness probe. Two paths, a validated body, and no authority over whether anything gets
+     * reported - the caller uses it only to word a message.
+     *
+     * <p>/api/ingest/health is tried first because it is the edge-routable path in the published
+     * contract and the one that survives a reverse proxy forwarding only /api/*. The body check is
+     * the half that matters in production: the M00N Report cloud answers an unrouted path with the
+     * single-page app shell and a 200, so a probe reading only the status passes against a service
+     * it never reached - which made a fail-closed gate also fail-open, and is why this survived.</p>
+     */
     public boolean healthCheck() {
-        try {
-            Request request = new Request.Builder()
-                .url(baseUrl + "/healthz")
-                .get()
-                .build();
-            
-            try (Response response = client.newCall(request).execute()) {
-                return response.isSuccessful();
+        for (String path : new String[] { "/api/ingest/health", "/healthz" }) {
+            try {
+                Request request = new Request.Builder().url(baseUrl + path).get().build();
+                try (Response response = client.newCall(request).execute()) {
+                    if (!response.isSuccessful()) {
+                        continue;
+                    }
+                    String body = response.body() != null ? response.body().string() : "";
+                    JsonObject parsed = asObject(body);
+                    if (parsed.has("ok") && parsed.get("ok").isJsonPrimitive()
+                            && parsed.get("ok").getAsJsonPrimitive().isBoolean()
+                            && parsed.get("ok").getAsBoolean()) {
+                        return true;
+                    }
+                }
+            } catch (IOException e) {
+                if (debug) {
+                    log.warn("Health check failed on {}: {}", path, e.getMessage());
+                }
             }
-        } catch (IOException e) {
-            if (debug) {
-                log.warn("Health check failed: {}", e.getMessage());
-            }
-            return false;
         }
+        return false;
     }
     
     /**
@@ -268,7 +285,12 @@ public class M00NHttpClient {
 
         IOException lastException = null;
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        // At least one attempt, whatever maxRetries says. The loop bound used to be maxRetries
+        // itself, so a configured 0 - which anyone would read as "try once, do not retry" - meant
+        // the body never ran: the client reported a failure without ever contacting the server, and
+        // every test in the suite was lost while the network was perfectly healthy.
+        int attempts = Math.max(1, maxRetries);
+        for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
                 try (Response response = client.newCall(request).execute()) {
                     String responseBody = response.body() != null ? response.body().string() : "{}";
@@ -278,7 +300,7 @@ public class M00NHttpClient {
                             log.debug("Response from {}: {}", path, responseBody);
                         }
                         consecutiveFailures.set(0);
-                        return gson.fromJson(responseBody, JsonObject.class);
+                        return asObject(responseBody);
                     }
 
                     throw classifyError(response.code(), responseBody);
@@ -297,11 +319,11 @@ public class M00NHttpClient {
             } catch (IOException e) {
                 lastException = e;
 
-                if (attempt < maxRetries) {
+                if (attempt < attempts) {
                     long delay = Math.min(1000L * (1L << (attempt - 1)), 5000L);
                     if (debug) {
                         log.warn("Retry {}/{} for {} after {}ms: {}",
-                            attempt, maxRetries, path, delay, e.getMessage());
+                            attempt, attempts, path, delay, e.getMessage());
                     }
                     try {
                         Thread.sleep(delay);
@@ -326,6 +348,27 @@ public class M00NHttpClient {
         }
 
         throw lastException != null ? lastException : new IOException("Unknown error");
+    }
+
+    /**
+     * A response body as a JSON object, whatever the server actually sent.
+     *
+     * <p>gson.fromJson(body, JsonObject.class) raises JsonSyntaxException on anything that is not
+     * an object - a JSON string, a number, an array, a plain-text body. That exception is
+     * UNCHECKED, so it is not an IOException, it misses every retry and catch in this class, and it
+     * propagates out of the reporter into the user's test. This was guarded on the error path and
+     * not on the success path, which is the one that runs on every healthy call.</p>
+     */
+    private JsonObject asObject(String responseBody) {
+        try {
+            JsonObject parsed = gson.fromJson(responseBody, JsonObject.class);
+            return parsed != null ? parsed : new JsonObject();
+        } catch (RuntimeException e) {
+            if (debug) {
+                log.debug("Response was not a JSON object: {}", responseBody);
+            }
+            return new JsonObject();
+        }
     }
 
     /**

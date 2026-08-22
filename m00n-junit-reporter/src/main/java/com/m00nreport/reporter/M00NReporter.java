@@ -136,11 +136,12 @@ public class M00NReporter {
         
         totalTests.set(totalTestCount);
         
-        // Check server health first
-        if (!httpClient.healthCheck()) {
-            log.warn("[M00NReporter] Server unavailable at {}. Reporter disabled.", config.getServerUrl());
-            return;
-        }
+        // The probe is ADVISORY. It used to return here, which disabled the entire run on one
+        // unroutable GET - and behind a reverse proxy that forwards only /api/*, or on any server
+        // that simply does not implement the path, that is every run. run/start below is the call
+        // that actually decides whether reporting is possible; the probe only chooses the wording
+        // when run/start has independently failed.
+        boolean probeOk = httpClient.healthCheck();
         
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -162,14 +163,23 @@ public class M00NReporter {
                 runStartTime = System.currentTimeMillis();
                 log.info("[M00NReporter] Run started: {}", runId);
             } else if (response.has("error")) {
-                log.error("[M00NReporter] Failed to start run: {}", response.get("error").getAsString());
+                log.error("[M00NReporter] Failed to start run: {}{}",
+                    response.get("error").getAsString(), probeOk ? "" : unreachableHint());
             }
         } catch (IOException e) {
-            log.error("[M00NReporter] Failed to start run: {}", e.getMessage());
+            // The probe's only job: telling a user whose run/start failed whether the server is
+            // unreachable or their key is wrong. Two very different next actions.
+            log.error("[M00NReporter] Failed to start run: {}{}", e.getMessage(),
+                probeOk ? "" : unreachableHint());
             errors.incrementAndGet();
         }
     }
     
+    private String unreachableHint() {
+        return " (the server at " + config.getServerUrl() + " did not answer a liveness probe either,"
+            + " so it is likely unreachable rather than refusing this run)";
+    }
+
     /**
      * End the current test run.
      */
