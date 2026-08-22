@@ -1,5 +1,6 @@
 # M00N Playwright JUnit Reporter
 
+[![CI](https://github.com/m00nreport/junit5-reporter/actions/workflows/ci.yml/badge.svg)](https://github.com/m00nreport/junit5-reporter/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.m00nreport/m00n-junit-reporter.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.m00nreport/m00n-junit-reporter)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
