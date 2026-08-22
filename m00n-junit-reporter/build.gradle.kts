@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.m00nreport"
-version = "1.5.1"
+version = "1.6.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

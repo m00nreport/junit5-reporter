@@ -166,10 +166,23 @@ m00n.attribute.environment=staging
 m00n.attribute.browser=chromium
 
 # Recognized by the dashboard - shown on the launch card.
-# Wire to your CI env vars or set directly.
+# ${env.VAR} is substituted from the environment when this file is read.
 m00n.attribute.branch=${env.GITHUB_REF_NAME}
 m00n.attribute.triggered_by=${env.GITHUB_ACTOR}
 ```
+
+Attributes resolve from the same three sources as every other setting, in the
+same order: a `-Dm00n.attribute.branch=...` system property, then the
+environment, then this file. In CI the environment is usually the least
+ceremony, and needs no properties file at all:
+
+```bash
+M00N_ATTRIBUTE_BRANCH=$CI_COMMIT_REF_NAME
+M00N_ATTRIBUTE_TRIGGERED_BY=$GITLAB_USER_LOGIN
+```
+
+`M00N_ATTRIBUTE_<NAME>` sets the attribute `<name>`, lowercased. An unset
+`${env.VAR}` omits the attribute rather than sending the placeholder text.
 
 #### Recognized attribute keys
 
