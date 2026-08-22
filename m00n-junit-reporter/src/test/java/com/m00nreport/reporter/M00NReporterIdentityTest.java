@@ -24,20 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Which test a result belongs to, and whether its artifacts arrive before the run closes.
  *
- * <p>Two defects, both of which produce a dashboard that is confidently wrong rather than
- * obviously broken.</p>
+ * <p>Identity: activeTests is keyed on a caller-supplied key rather than the display name,
+ * because display names are not unique - one name repeats across classes, and a parameterized
+ * test repeats one name across every invocation.</p>
  *
- * <p>The first is identity. activeTests was keyed on the display name, and display names are not
- * unique - "returns 200" and "renders" live in half the classes of any suite, and a
- * parameterized test repeats one name across every invocation. The second start overwrote the
- * first, so one test's result was reported against the other's id, carrying its timings, its
- * steps and its attachments, and the other was never completed at all. The README advertises
- * parallel safety.</p>
- *
- * <p>The second is timing. Playwright artifacts were submitted to the upload executor and never
- * registered, so waitForPendingUploads - which run/end calls precisely to avoid this - had
- * nothing to wait for. A multi-megabyte trace loses that race almost every time, and the 409 that
- * follows is a permanent code, so it is not retried.</p>
+ * <p>Timing: an upload submitted to the executor is registered as a pending future, so run/end
+ * waits for it. The 409 that follows an overtaken upload is a permanent code and is not
+ * retried.</p>
  */
 class M00NReporterIdentityTest {
 
@@ -164,8 +157,8 @@ class M00NReporterIdentityTest {
     @Test
     @DisplayName("an artifact is uploaded before the run is closed")
     void anArtifactIsUploadedBeforeTheRunIsClosed() {
-        // The trace for the last failing test is the artifact anyone actually opens, and it was
-        // the one most likely to lose this race.
+        // The trace for the last failing test is the artifact anyone actually opens, and the one
+        // most exposed to this race.
         M00NReporter reporter = reporter();
         reporter.startRun(1);
         reporter.startTest("Checkout", "pays", "com.example.CheckoutTest", 0, "uid-1");

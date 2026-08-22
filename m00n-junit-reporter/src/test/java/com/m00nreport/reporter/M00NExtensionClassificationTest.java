@@ -9,17 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Whether a throwable that ended a test means the test was skipped or failed.
  *
- * The rule existed in two places and only one of them ran. The method interceptor caught every
- * throwable, reported "failed", and set the already-reported flag; the testAborted callback had
- * the correct version and was therefore unreachable. Every skipped test in every Java suite was
- * reported as a failure.
+ * An abandoned assumption is a skip. The exception type alone cannot decide it: a retry
+ * extension reports a failed ATTEMPT through TestAbortedException as well, so the cause and the
+ * message are what separate the two.
  *
- * Found by the canonical scenario set against a live stack: the `skipped` scenario, which uses
- * Assumptions.assumeTrue(false), arrived with status "failed" while the same scenario arrived as
- * "skipped" from all four other reporters.
- *
- * The retry case is what makes this more than a one-line check. A retry extension reports a failed
- * ATTEMPT through TestAbortedException as well, so the exception type alone cannot decide it.
+ * One copy of the rule, shared by the interceptor and the testAborted callback.
  */
 class M00NExtensionClassificationTest {
 
@@ -78,13 +72,9 @@ class M00NExtensionClassificationTest {
 
     // --- a display name that is only an invocation index -------------------------
     //
-    // JUnit Pioneer's @RetryingTest is a test template, and the display-name resolver prefers an
-    // invocation's name over the method's @DisplayName - right for @ParameterizedTest, where the
-    // invocation name carries the arguments, wrong for Pioneer, which names its invocations "[1]"
-    // and "[2]". Every retried test arrived in the dashboard called "[1]", including for anyone
-    // following this reporter's own advice to use @RetryingTest instead of its deprecated @Retry.
-    //
-    // Found by the canonical scenario set: three scenarios lost their names entirely.
+    // The display-name resolver prefers an invocation's name over the method's @DisplayName -
+    // right for @ParameterizedTest, where the invocation name carries the arguments, and wrong
+    // for JUnit Pioneer's @RetryingTest, which names its invocations "[1]" and "[2]".
 
     @Test
     @DisplayName("an index alone is not a name")

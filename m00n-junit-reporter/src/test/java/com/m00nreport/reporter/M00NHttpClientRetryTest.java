@@ -23,16 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * What the retry loop costs when the server says no.
  *
- * The loop raised its "permanent error" signal as an IOException from inside the
- * try whose own catch(IOException) implements the retry. So the signal was caught
- * one line later by the code it was meant to bypass, slept, and tried again. An
- * INVALID_API_KEY - a credential that will still be wrong in a millisecond - cost
- * three attempts and three seconds of sleeping on every call, for the whole
- * suite. Against a server that accepts connections and hangs, one call cost the
- * read timeout three times over, about 93 seconds, on the test thread.
+ * A permanent verdict has to bypass the retry loop. A credential that is wrong now will be
+ * wrong a millisecond later, and each further attempt spends its backoff - or, against a server
+ * that accepts connections and hangs, a full read timeout - on the test thread.
  *
- * There was also no circuit breaker, so nothing ever concluded that the service
- * was gone and stopped asking.
+ * The circuit breaker is the second half: after enough consecutive service-level failures the
+ * client stops asking at all.
  *
  * These tests use the JDK's own HttpServer rather than MockWebServer: it needs no
  * new dependency, runs offline, and is a real socket, so what is measured is the
@@ -146,8 +142,8 @@ class M00NHttpClientRetryTest {
     @Test
     @DisplayName("a transient error is still retried, and still succeeds")
     void transientErrorIsRetried() throws IOException {
-        // The other direction. A fix that stops retrying everything would be worse
-        // than the bug: a single 502 from a load balancer would lose the call.
+        // The other direction. Treating every non-2xx as permanent would be worse:
+        // a single 502 from a load balancer would lose the call.
         start(n -> n < 3 ? new Reply(502, "{}") : new Reply(200, "{\"runId\":\"r1\"}"));
         M00NHttpClient client = client();
 

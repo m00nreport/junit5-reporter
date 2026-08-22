@@ -238,17 +238,13 @@ public class M00NHttpClient {
     }
     
     /**
-     * Check if server is available.
-     */
-    /**
-     * Liveness probe. Two paths, a validated body, and no authority over whether anything gets
-     * reported - the caller uses it only to word a message.
+     * Liveness probe. Advisory only: the caller uses the result to word a message, not to decide
+     * whether anything gets reported.
      *
-     * <p>/api/ingest/health is tried first because it is the edge-routable path in the published
-     * contract and the one that survives a reverse proxy forwarding only /api/*. The body check is
-     * the half that matters in production: the M00N Report cloud answers an unrouted path with the
-     * single-page app shell and a 200, so a probe reading only the status passes against a service
-     * it never reached - which made a fail-closed gate also fail-open, and is why this survived.</p>
+     * <p>/api/ingest/health is tried first as the edge-routable path in the published contract,
+     * the one that survives a reverse proxy forwarding only /api/*. The body is checked as well
+     * as the status because an unrouted path can still answer 200 with a single-page app
+     * shell.</p>
      */
     public boolean healthCheck() {
         for (String path : new String[] { "/api/ingest/health", "/healthz" }) {
@@ -285,10 +281,8 @@ public class M00NHttpClient {
 
         IOException lastException = null;
 
-        // At least one attempt, whatever maxRetries says. The loop bound used to be maxRetries
-        // itself, so a configured 0 - which anyone would read as "try once, do not retry" - meant
-        // the body never ran: the client reported a failure without ever contacting the server, and
-        // every test in the suite was lost while the network was perfectly healthy.
+        // At least one attempt, whatever maxRetries says: a configured 0 reads as "try once, do
+        // not retry", not "never contact the server".
         int attempts = Math.max(1, maxRetries);
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
@@ -306,12 +300,8 @@ public class M00NHttpClient {
                     throw classifyError(response.code(), responseBody);
                 }
             } catch (PermanentException e) {
-                // Caught BEFORE the IOException handler below, which is the whole
-                // point. This used to be an ordinary IOException raised inside the
-                // try, so the retry handler one line down caught the signal meant
-                // to bypass it, slept, and asked again. An INVALID_API_KEY cost
-                // three attempts and three seconds of sleeping on every call for
-                // the whole suite.
+                // Ordered before the IOException handler below: a permanent verdict has to
+                // bypass the retry loop rather than be slept on and asked again.
                 if (e.fatal) {
                     openCircuit(e.getMessage());
                 }
@@ -337,9 +327,8 @@ public class M00NHttpClient {
 
         int failures = consecutiveFailures.incrementAndGet();
         if (failures == 1) {
-            // The first failure is the one worth saying out loud. Warning only at
-            // the threshold means a suite shorter than five calls against a dead
-            // server says nothing at all.
+            // Warned on the first failure rather than at the threshold: a suite shorter than
+            // five calls against a dead server would otherwise say nothing at all.
             log.warn("[M00NReporter] Cannot reach the reporting service: {}. Tests continue regardless.",
                 lastException != null ? lastException.getMessage() : "unknown error");
         }
@@ -353,11 +342,9 @@ public class M00NHttpClient {
     /**
      * A response body as a JSON object, whatever the server actually sent.
      *
-     * <p>gson.fromJson(body, JsonObject.class) raises JsonSyntaxException on anything that is not
-     * an object - a JSON string, a number, an array, a plain-text body. That exception is
-     * UNCHECKED, so it is not an IOException, it misses every retry and catch in this class, and it
-     * propagates out of the reporter into the user's test. This was guarded on the error path and
-     * not on the success path, which is the one that runs on every healthy call.</p>
+     * <p>gson raises an UNCHECKED JsonSyntaxException on a body that is not an object - a JSON
+     * string, a number, an array, a plain-text body. Unchecked means it is not an IOException, so
+     * it would miss every retry and catch in this class and propagate into the user's test.</p>
      */
     private JsonObject asObject(String responseBody) {
         try {
@@ -374,10 +361,8 @@ public class M00NHttpClient {
     /**
      * Decide whether a non-2xx response is worth another attempt.
      *
-     * Parsing is defensive because the body is not always ours. A proxy or CDN
-     * answering 413 or 502 sends HTML or plain text, and gson throws an unchecked
-     * JsonSyntaxException on it - which is not an IOException, so it escaped the
-     * retry handler entirely and propagated out of the reporter.
+     * Parsing is defensive because the body is not always ours: a proxy or CDN answering 413 or
+     * 502 sends HTML or plain text, and gson's JsonSyntaxException is unchecked.
      */
     private IOException classifyError(int status, String responseBody) {
         String errorCode = null;

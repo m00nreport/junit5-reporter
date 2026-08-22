@@ -23,8 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * What this client does with a response that is not the shape it expected, and what a
  * configuration value of zero does to it.
  *
- * Category 2 of the failure-mode checklist. The error path here was hardened once already; the
- * SUCCESS path was not, and it is the one that runs on every healthy call.
+ * Both paths are covered: the success path is the one that runs on every healthy call.
  */
 class M00NHttpClientResponseTest {
 
@@ -78,10 +77,9 @@ class M00NHttpClientResponseTest {
     @Test
     @DisplayName("a 200 whose body is a JSON string does not throw out of the client")
     void successWithJsonScalarDoesNotThrow() throws IOException {
-        // gson.fromJson(body, JsonObject.class) raises JsonSyntaxException on anything that is not
-        // an object, and JsonSyntaxException is unchecked - so it is not an IOException, it misses
-        // every retry and catch in this file, and it propagates out of the reporter into the user's
-        // test. A proxy or a load balancer answering a health-style body is enough to trigger it.
+        // JsonSyntaxException is unchecked, so a non-object body escapes every retry and catch
+        // in the client and propagates into the user's test. A proxy or a load balancer answering
+        // a health-style body is enough to produce one.
         start(n -> Reply.json(200, "\"OK\""));
 
         assertDoesNotThrow(() -> client(3).post("/api/ingest/v2/run/start", Map.of()));
@@ -128,10 +126,9 @@ class M00NHttpClientResponseTest {
     @Test
     @DisplayName("maxRetries=0 still sends the request once")
     void zeroRetriesStillSendsOnce() throws IOException {
-        // The loop is `for (attempt = 1; attempt <= maxRetries; ...)`, so a configured 0 means the
-        // body never runs: the client reports a failure without ever contacting the server, and
-        // every test in the suite is lost while the network is perfectly healthy. Someone reading
-        // "maxRetries" reasonably sets 0 to mean "try once, do not retry".
+        // Someone reading "maxRetries" reasonably sets 0 to mean "try once, do not retry", so
+        // the loop must still make one attempt rather than report a failure without ever
+        // contacting the server.
         start(n -> Reply.json(200, "{\"runId\":\"run-1\"}"));
 
         var response = client(0).post("/api/ingest/v2/run/start", Map.of());

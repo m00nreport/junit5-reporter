@@ -70,7 +70,7 @@ public final class M00NStep {
     
     /**
      * Mark the current test as failed.
-     * Used to trigger screenshot capture in @AfterEach.
+     * Triggers screenshot capture in @AfterEach.
      */
     public static void markFailed() {
         TEST_FAILED.set(true);

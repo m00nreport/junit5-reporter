@@ -20,7 +20,7 @@ public final class TeardownFixtures {
     private TeardownFixtures() {
     }
 
-    /** The defect's shape: the body returns, then teardown fails the test. */
+    /** The body returns, then teardown fails the test. */
     @ExtendWith(M00NExtension.class)
     public static class PassingBodyFailingTeardown {
         @Test

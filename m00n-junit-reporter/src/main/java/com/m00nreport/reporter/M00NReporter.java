@@ -117,9 +117,8 @@ public class M00NReporter {
     /**
      * Test seam: drop the singleton so the next initialize() builds a fresh one.
      *
-     * <p>initialize() deliberately refuses to replace a reporter whose run has started, which is
-     * right in production and makes each test in a suite inherit the previous one's instance -
-     * still pointed at a server that has since been stopped.</p>
+     * <p>initialize() refuses to replace a reporter whose run has started, so without this each
+     * test in a suite inherits the previous one's instance and its server.</p>
      */
     static void resetForTesting() {
         synchronized (lock) {
@@ -149,11 +148,9 @@ public class M00NReporter {
         
         totalTests.set(totalTestCount);
         
-        // The probe is ADVISORY. It used to return here, which disabled the entire run on one
-        // unroutable GET - and behind a reverse proxy that forwards only /api/*, or on any server
-        // that simply does not implement the path, that is every run. run/start below is the call
-        // that actually decides whether reporting is possible; the probe only chooses the wording
-        // when run/start has independently failed.
+        // Advisory only. run/start below is the call that decides whether reporting is
+        // possible; the probe only chooses the wording once run/start has independently failed,
+        // since not every deployment routes the probe path.
         boolean probeOk = httpClient.healthCheck();
         
         try {
@@ -163,9 +160,8 @@ public class M00NReporter {
             payload.put("total", totalTestCount);
             payload.put("startedAt", Instant.now().toString());
             
-            // Add user-supplied attributes (m00n.attribute.* from config).
-            // The reporter no longer injects framework/language defaults; those
-            // cluttered every launch's attribute list without adding value.
+            // User-supplied attributes only (m00n.attribute.* from config). No framework or
+            // language defaults are injected.
             payload.put("attributes", new HashMap<>(config.getAttributes()));
             
             JsonObject response = httpClient.post("/api/ingest/v2/run/start", payload);
@@ -225,10 +221,8 @@ public class M00NReporter {
             log.error("[M00NReporter] Failed to end run: {}", e.getMessage());
             errors.incrementAndGet();
         } finally {
-            // The summary is the user's only confirmation that reporting worked, and it used to be
-            // inside the try - printed only when the final run/end POST succeeded. So on exactly
-            // the runs where something went wrong, the line telling them so was the line that did
-            // not appear, and the terminal looked like a run with no reporter installed.
+            // In the finally block: the summary is the user's only confirmation that reporting
+            // ran, so it must print even when the closing POST fails.
             printSummary();
             shutdown();
         }
@@ -280,23 +274,18 @@ public class M00NReporter {
     }
     
     /**
-     * Start tracking a test.
-     * 
+     * Start tracking a test under an explicit key.
+     *
+     * <p>The key pairs a result with the start that opened it, and display names are not unique:
+     * a name like "renders" repeats across classes, and a {@code @ParameterizedTest} repeats one
+     * name across every invocation. The extension passes JUnit's own uniqueId, which is unique
+     * per invocation and per retry.</p>
+     *
      * @param suiteDisplayName Display name for the test suite/class
      * @param testDisplayName Display name for the test method
      * @param actualClassName Full class name for file path (e.g., com.example.MyTest)
      * @param retry Retry attempt number (0 for first run, 1 for first retry, etc.)
-     */
-    /**
-     * Start tracking a test under an explicit key.
-     *
-     * <p>The key is what pairs a result with the start that opened it, and display names are not
-     * unique: "returns 200" and "renders" live in half the classes in a suite, and a
-     * {@code @ParameterizedTest} repeats one name across every invocation. Keyed on the display
-     * name, the second start overwrote the first, so one test's result was reported against the
-     * other's id - with its timings, its steps and its attachments - and the other was never
-     * completed at all. Both looked real. The extension passes JUnit's own uniqueId, which is
-     * unique per invocation and per retry.</p>
+     * @param key Key that pairs this start with its completeTest call
      */
     public TestResult startTest(String suiteDisplayName, String testDisplayName, String actualClassName,
                                 int retry, String key) {
@@ -330,10 +319,7 @@ public class M00NReporter {
     }
     
     /**
-     * Complete a test and report results.
-     */
-    /**
-     * Complete the test opened under this key. See
+     * Complete the test opened under this key and report its result. See
      * {@link #startTest(String, String, String, int, String)} for why the key is not the name.
      */
     public void completeTest(String status, Throwable error, String key) {
@@ -497,14 +483,9 @@ public class M00NReporter {
         log.info("[M00NReporter] Attaching {} ({} bytes) to test {}", 
             attachment.getName(), attachment.getSize(), testId);
         
-        // Upload immediately, and REGISTER the future.
-        //
-        // It was submitted and forgotten, so waitForPendingUploads() - which run/end calls
-        // precisely to avoid this - had nothing to wait for on the Playwright path: nothing else
-        // in the library ever populated pendingUploads for it. A multi-megabyte trace loses that
-        // race almost every time, and the 409 RUN_NOT_ACTIVE that follows is a permanent code, so
-        // it is not retried. The artifact anyone actually opens - the trace for the last failing
-        // test - was the one most likely to vanish.
+        // The future is registered so waitForPendingUploads() at run end has something to wait
+        // for. An unregistered upload races run/end, and the 409 RUN_NOT_ACTIVE that follows is a
+        // permanent code, so it is not retried.
         Future<?> future = uploadExecutor.submit(() -> {
             try {
                 httpClient.uploadAttachment(

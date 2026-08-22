@@ -16,25 +16,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Custom attributes are what put a branch name and a committer on the launch
- * card, so they are the fields that make a CI run identifiable at all. Every
- * other setting here resolves through a system property, then an environment
- * variable, then the properties file. Attributes resolved from the properties
- * file and nothing else.
+ * Custom attributes put a branch name and a committer on the launch card, so they are what
+ * makes a CI run identifiable at all. They resolve from a system property, then an environment
+ * variable, then the properties file - the same order as every other setting.
  *
- * That is the whole bug, and it is worse than an inconvenience because of what
- * the documented workaround looks like. A CI job cannot know its branch at build
- * time, so the README told users to write
+ * ${env.VAR} inside the properties file is interpolated by this library: nothing in Gradle or
+ * Maven touches a .properties file we load ourselves at runtime.
  *
- *     m00n.attribute.branch=${env.GITHUB_REF_NAME}
- *
- * Nothing interpolated that. Gradle and Maven do not touch a .properties file we
- * load ourselves at runtime, so the literal string reached the server and every
- * launch card in the account read "${env.GITHUB_REF_NAME}".
- *
- * The env lookup is injected rather than read from the process, because Java has
- * no portable way to set an environment variable for a running JVM and a test
- * that cannot cover the env path would leave the main case unpinned.
+ * The env lookup is injected rather than read from the process, because Java has no portable way
+ * to set an environment variable for a running JVM.
  */
 class M00NConfigAttributeTest {
 
@@ -68,7 +58,7 @@ class M00NConfigAttributeTest {
         return p;
     }
 
-    // ------------------------------------------------------------ the old path
+    // -------------------------------------------------------- the properties file
 
     @Test
     @DisplayName("a literal value in the properties file still works")
@@ -79,7 +69,7 @@ class M00NConfigAttributeTest {
         assertEquals("main", attrs.get("branch"));
     }
 
-    // -------------------------------------------------------------- the new one
+    // --------------------------------------------- system property and environment
 
     @Test
     @DisplayName("a system property sets an attribute, like every other setting")
@@ -139,10 +129,8 @@ class M00NConfigAttributeTest {
     @Test
     @DisplayName("an unresolvable ${env.VAR} drops the attribute instead of sending it literally")
     void unresolvedPlaceholderIsDropped() {
-        // This is the bug's visible symptom, so it gets its own guard. Sending the
-        // placeholder is strictly worse than sending nothing: it puts a broken
-        // string on every launch card and looks like our bug to the user, which it
-        // was.
+        // Sending the placeholder is worse than sending nothing: it puts a broken string on
+        // every launch card and reads as our fault rather than a missing CI variable.
         Map<String, String> attrs = M00NConfig.resolveAttributes(
                 file("m00n.attribute.branch", "${env.GITHUB_REF_NAME}"), env());
 

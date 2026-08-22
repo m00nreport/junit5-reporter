@@ -114,15 +114,11 @@ public class TestResult {
 
     public StepData addStep(String title, String category) {
         StepData step = new StepData(title, category, stepIndex++);
-        // Stamped so completeStep can measure. Steps added through this API always reported a null
-        // duration, which the UI renders as a dash - indistinguishable from a step that genuinely
-        // took no time, and useless for finding the slow one.
+        // Stamped so completeStep can measure the duration.
         stepStartMillis.put(step, System.currentTimeMillis());
-        // Honour the current nesting level. The @Step aspect maintains it around every annotated
-        // method, but this - the API a user reaches for when adding a step by hand - created every
-        // step at level 0, so a manually built hierarchy rendered as a flat list however it was
-        // written. Wrap the inner calls in M00NStep.incrementNestingLevel/decrementNestingLevel to
-        // build one.
+        // Honours the current nesting level, which the @Step aspect maintains around every
+        // annotated method. Building a hierarchy by hand means wrapping the inner calls in
+        // M00NStep.incrementNestingLevel / decrementNestingLevel.
         step.setNestingLevel(com.m00nreport.reporter.M00NStep.getCurrentNestingLevel());
         steps.add(step);
         

@@ -115,28 +115,17 @@ public class M00NConfig {
      * every other setting: system property, then environment variable, then the
      * properties file.
      *
-     * <p>They used to come from the properties file alone, which made them the one
-     * setting a CI job could not supply - and they are precisely the setting a CI
-     * job needs, since branch and committer are what make a launch card
-     * identifiable. The documented way round it was to write
-     * {@code m00n.attribute.branch=${env.GITHUB_REF_NAME}} in the file, and nothing
-     * interpolated that: Gradle and Maven do not touch a properties file this
-     * library loads itself at runtime, so the literal placeholder reached the
-     * server and appeared on every launch card.</p>
+     * <p>Two channels. {@code M00N_ATTRIBUTE_TRIGGERED_BY=oleg} sets the attribute
+     * {@code triggered_by} directly, and the {@code ${env.VAR}} form inside the properties file
+     * is interpolated here - nothing in Gradle or Maven touches a properties file this library
+     * loads itself at runtime.</p>
      *
-     * <p>Two channels now exist. {@code M00N_ATTRIBUTE_TRIGGERED_BY=oleg} sets the
-     * attribute {@code triggered_by} directly, and the {@code ${env.VAR}} form in
-     * the file resolves, so the documented example works as written.</p>
+     * <p>An unresolved placeholder DROPS the attribute rather than sending the literal text. An
+     * unset CI variable means there is no branch information, which is a truthful absence; the
+     * placeholder on a launch card is a visible fault that reads as ours.</p>
      *
-     * <p>An unresolved placeholder DROPS the attribute rather than sending the
-     * literal text. An unset CI variable means there is no branch information,
-     * which is a truthful absence; the placeholder on a launch card is a visible
-     * defect that reads as ours.</p>
-     *
-     * <p>The environment is a parameter rather than a direct
-     * {@link System#getenv()} call because Java cannot set an environment variable
-     * for a running JVM, and a seam is cheaper than leaving the main path
-     * untested.</p>
+     * <p>The environment is a parameter rather than a direct {@link System#getenv()} call because
+     * Java cannot set an environment variable for a running JVM.</p>
      */
     static Map<String, String> resolveAttributes(Properties props, Map<String, String> env) {
         Map<String, String> resolved = new LinkedHashMap<>();

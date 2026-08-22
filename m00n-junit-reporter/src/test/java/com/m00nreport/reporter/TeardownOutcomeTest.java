@@ -27,15 +27,14 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * A test body that returned is not a passed test.
  *
- * <p>The interceptor reported "passed" the moment the method returned, which is before any
- * teardown runs. An @AfterEach that throws - a failing cleanup assertion, a leaked-resource
- * check, a verify() in teardown - fails the test as far as JUnit and the exit code are concerned,
- * and the dashboard had already recorded a pass. A red build beside a green dashboard is the
- * worst disagreement the two can have, and it corrupts pass rate and flakiness on top of it.</p>
+ * <p>A teardown that throws fails the test as far as JUnit and the exit code are concerned, so
+ * the reported status has to come from after @AfterEach rather than from the moment the body
+ * returns.</p>
  *
  * <p>Driven through the real JUnit launcher rather than by calling the extension's methods,
- * because the ordering between the interceptor, @AfterEach and the TestWatcher callbacks IS the
- * defect: a test that called them in an order of its own choosing would prove nothing.</p>
+ * because the ordering between the interceptor, @AfterEach and the TestWatcher callbacks is
+ * exactly what is under test: a test that called them in an order of its own choosing would
+ * prove nothing.</p>
  */
 class TeardownOutcomeTest {
 
@@ -136,7 +135,7 @@ class TeardownOutcomeTest {
     @DisplayName("a failing body is still reported once, from the interceptor")
     void aFailingBodyIsStillReportedOnce() {
         // The failure path must keep reporting inside the interceptor: a retry extension catches
-        // the throw one frame up, and after that this attempt no longer exists to report.
+        // the throw one frame up, and past that point there is no attempt left to report.
         run(TeardownFixtures.FailingBody.class);
 
         assertEquals("failed", reportedStatus());

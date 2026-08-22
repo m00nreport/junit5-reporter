@@ -161,19 +161,13 @@ public class M00NExtension implements
         
         try {
             invocation.proceed();
-            // A test body that returned is NOT a passed test yet, and reporting it here said it
-            // was. @AfterEach has not run: a failing cleanup assertion, a leaked-resource check, a
-            // verify() in a teardown - all of them fail the test as far as JUnit and the exit code
-            // are concerned, and the dashboard had already recorded a pass. A red build with a
-            // green dashboard is the worst disagreement of the two, and it quietly corrupts pass
-            // rate and flakiness on top.
+            // A returned body is not a passed test yet: @AfterEach has not run, and a failing
+            // teardown fails the test as far as JUnit and the exit code are concerned. The pass
+            // is left to the TestWatcher callbacks below, which fire after every teardown with
+            // the outcome JUnit settled on, and which also see an @Step recorded in @AfterEach.
             //
-            // So the pass path defers to the TestWatcher callbacks below, which fire AFTER every
-            // teardown with the outcome JUnit itself settled on. It also means an @Step inside
-            // @AfterEach is still collectible when the result is built.
-            //
-            // The FAILURE path still reports here, and must: a retry extension catches the throw
-            // one frame up, and after that this attempt no longer exists to report.
+            // The failure path still reports from here: a retry extension catches the throw one
+            // frame up, and past that point there is no attempt left to report.
         } catch (Throwable t) {
             // Mark test as failed
             M00NStep.markFailed();
@@ -182,11 +176,8 @@ public class M00NExtension implements
             // This is critical when customers have their own extensions that close the context
             capturePlaywrightArtifacts(testResult, extensionContext);
             
-            // Test finished abnormally - report immediately, before a retry extension catches it.
-            // NOT unconditionally "failed": an abandoned assumption is a SKIP, and reporting it as
-            // a failure here also silenced the testAborted callback below, which had the right
-            // rule and never got to apply it because this line had already marked the test as
-            // reported.
+            // Reported here, before a retry extension catches the throw. Classified rather than
+            // assumed failed: an abandoned assumption is a skip.
             reportTestResult(extensionContext, classifyThrowable(t), t);
             throw t; // Re-throw so JUnit Pioneer can handle retry
         }
@@ -422,10 +413,8 @@ public class M00NExtension implements
      * failed ATTEMPT the same way - through {@code TestAbortedException} - but wraps the real
      * failure, so a cause or an unrelated message means the test failed rather than opted out.</p>
      *
-     * <p>Package-private and static so it can be tested directly, and so there is exactly one copy
-     * of this rule. There used to be two, and only one of them ran: the interceptor reported every
-     * throwable as failed and marked the test reported, which made the correct version below
-     * unreachable and turned every skipped test into a failed one.</p>
+     * <p>Package-private and static so it can be tested directly, and so the interceptor and the
+     * TestWatcher callbacks share one copy of the rule rather than each carrying its own.</p>
      */
     static String classifyThrowable(Throwable cause) {
         if (cause == null) {
@@ -565,13 +554,9 @@ public class M00NExtension implements
                     }
                 }
                 
-                // An invocation index on its own is not a name. JUnit Pioneer's @RetryingTest is
-                // a test template, so the branch above deliberately prefers the invocation's
-                // display name over the method's @DisplayName - correct for @ParameterizedTest,
-                // where the invocation name carries the arguments, and wrong here, because Pioneer
-                // names its invocations "[1]" and "[2]". Every retried test therefore arrived in
-                // the dashboard called "[1]", including for anyone following this reporter's own
-                // advice to use @RetryingTest instead of its deprecated @Retry.
+                // An invocation index on its own is not a name. The branch above prefers the
+                // invocation's display name, which carries the arguments for @ParameterizedTest
+                // but is only "[1]" or "[2]" for JUnit Pioneer's @RetryingTest.
                 if (isBareInvocationIndex(contextDisplayName)) {
                     if (displayName != null && !displayName.value().isEmpty()) {
                         return displayName.value();
@@ -654,10 +639,8 @@ public class M00NExtension implements
         }
         StringBuilder sb = new StringBuilder(base);
         for (int num : caseNumbers) {
-            // Skip a marker the display name already carries. Writing
-            // @DisplayName("login [TC-1]") next to @TestCaseId("1") is a reasonable thing to do -
-            // the name reads correctly in an IDE and the annotation is the machine-readable form -
-            // and it used to produce "login [TC-1] [TC-1]" on the launch card.
+            // Skip a marker the display name already carries: @DisplayName("login [TC-1]")
+            // beside @TestCaseId("1") is a reasonable pairing and must not double the marker.
             String marker = " [TC-" + num + "]";
             if (sb.indexOf(marker.trim()) < 0) {
                 sb.append(marker);
@@ -812,15 +795,9 @@ public class M00NExtension implements
             return info.attempt;
         }
         
-        // JUnit Pioneer 2.x does not name its invocations "Attempt N" - it names them "[1]",
-        // "[2]". The comment on RETRY_PATTERN is right that a bracketed index is not a retry in
-        // general, because that is exactly how @ParameterizedTest names an invocation too. The
-        // annotation is what separates them, so the index counts as an attempt only on a method
-        // that actually declares a retrying test.
-        //
-        // Until this existed every attempt of every retried Java test was reported with retry=0,
-        // so the dashboard saw two unrelated results for one test rather than a retry, and the
-        // conformance suite's RETRY_MONOTONIC invariant had nothing to check.
+        // JUnit Pioneer 2.x names its invocations "[1]" and "[2]", not "Attempt N". A bracketed
+        // index is not a retry in general - @ParameterizedTest names invocations the same way - so
+        // it counts as an attempt only on a method that declares a retrying test.
         if (isRetryingTest(context)) {
             Matcher indexMatcher = INVOCATION_INDEX_PATTERN.matcher(context.getUniqueId());
             if (indexMatcher.find()) {
