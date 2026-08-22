@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The reporter targets Java 17, so 17 is the floor and 21 is the current LTS most
+# projects consuming it will actually run on. Both must stay green: this library is
+# added to someone else's build, and a version-specific break lands in their CI,
+# not ours.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['17', '21']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew :m00n-junit-reporter:test --no-daemon
+
+      - name: Build
+        run: ./gradlew :m00n-junit-reporter:build --no-daemon -x test
+
+      # Publishing is manual, but a POM that cannot be generated fails at release
+      # time rather than here, which is the expensive place to find out.
+      - name: Publication metadata resolves
+        run: ./gradlew :m00n-junit-reporter:generatePomFileForMavenPublication --no-daemon
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-java-${{ matrix.java }}
+          path: m00n-junit-reporter/build/reports/tests/test
+          retention-days: 7
