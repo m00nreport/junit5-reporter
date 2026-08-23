@@ -51,7 +51,7 @@ dependencies {
     // observable by running a real suite through the launcher inside a test.
     testImplementation("org.junit.platform:junit-platform-launcher")
     testImplementation("org.junit.platform:junit-platform-testkit")
-    testImplementation("ch.qos.logback:logback-classic:1.5.12")
+    testImplementation("ch.qos.logback:logback-classic:1.5.38")
 }
 
 tasks.test {
