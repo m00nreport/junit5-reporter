@@ -31,7 +31,10 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
-      - uses: gradle/actions/setup-gradle@v4
+      # The only action here that is not first-party actions/*, so it is the only
+      # one a retagged release could reach. Pinned to a commit rather than the
+      # moving v4 tag, which had in any case been left behind at 4.4.3.
+      - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
 
       - name: Unit tests
         run: ./gradlew :m00n-junit-reporter:test --no-daemon
