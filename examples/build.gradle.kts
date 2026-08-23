@@ -61,11 +61,21 @@ tasks.test {
     maxParallelForks = 1
 }
 
-// Task to install Playwright browsers
-tasks.register("installPlaywrightBrowsers") {
-    doLast {
-        exec {
+// Task to install Playwright browsers.
+//
+// Through the injected ExecOperations rather than Project.exec, which Gradle 9
+// removed from the script scope: a task that reaches back into the project at
+// execution time is what stops the configuration cache from working.
+abstract class InstallPlaywrightBrowsers : DefaultTask() {
+    @get:javax.inject.Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun install() {
+        execOperations.exec {
             commandLine("npx", "playwright", "install", "--with-deps")
         }
     }
 }
+
+tasks.register<InstallPlaywrightBrowsers>("installPlaywrightBrowsers")
