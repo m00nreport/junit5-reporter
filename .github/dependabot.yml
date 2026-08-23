@@ -1,0 +1,20 @@
+version: 2
+
+# CI pins gradle/actions/setup-gradle to a commit rather than the moving v4 tag,
+# so a retagged release cannot reach our runner. The cost of that is staleness:
+# a pinned action never picks up its own security fixes. This watches for them
+# and opens a pull request, so an update arrives as something we review and
+# merge rather than as code that changed underneath us.
+#
+# Scoped to GitHub Actions on purpose. Gradle dependencies are not watched here.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
