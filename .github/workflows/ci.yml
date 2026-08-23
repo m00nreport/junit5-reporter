@@ -24,9 +24,9 @@ jobs:
       matrix:
         java: ['17', '21', '25']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
@@ -34,7 +34,7 @@ jobs:
       # The only action here that is not first-party actions/*, so it is the only
       # one a retagged release could reach. Pinned to a commit rather than the
       # moving v4 tag, which had in any case been left behind at 4.4.3.
-      - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Unit tests
         run: ./gradlew :m00n-junit-reporter:test --no-daemon
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload test report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-report-java-${{ matrix.java }}
           path: m00n-junit-reporter/build/reports/tests/test
