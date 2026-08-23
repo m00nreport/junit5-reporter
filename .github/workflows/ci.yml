@@ -22,7 +22,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['17', '21', '25']
+        # Not 25 yet: Gradle 8.14 rejects its class files (major version 69) and the
+        # build fails before a test runs. Add it once Gradle is upgraded - the build
+        # already warns it is incompatible with Gradle 9, so that is its own change.
+        java: ['17', '21']
     steps:
       - uses: actions/checkout@v4
 
